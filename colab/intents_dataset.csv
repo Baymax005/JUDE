@@ -1,0 +1,1081 @@
+text,intent,tier,style
+Remember that my advisor's email is dr.smith@example.edu,SAVE_MEMORY,tier1,typed
+Save my course section as CS-301 Section B,SAVE_MEMORY,tier1,typed
+Store a note that my AI lab submission is due every Friday at 5 PM,SAVE_MEMORY,tier1,typed
+Keep in mind I prefer concise bullet points for summaries,SAVE_MEMORY,tier1,typed
+Remember my teammate's handle is @alex.dev,SAVE_MEMORY,tier1,typed
+Save this fact: our capstone meeting room is Hall C-204,SAVE_MEMORY,tier1,typed
+Note down that our team sprint standup happens at 9:30 AM,SAVE_MEMORY,tier1,typed
+Store my preferred citation format as IEEE style,SAVE_MEMORY,tier1,typed
+Remember my workspace folder for demos is Projects\DemoApp,SAVE_MEMORY,tier1,typed
+Save a reminder that my dentist appointment is on December 3rd,SAVE_MEMORY,tier1,typed
+Keep track of my brother's birthday on April 14,SAVE_MEMORY,tier1,typed
+Store that my secondary study email is alex.morgan@example.com,SAVE_MEMORY,tier1,typed
+Remember I am taking Intro to Machine Learning this semester,SAVE_MEMORY,tier1,typed
+Save the office hours for Prof. Taylor: Tuesday 2 to 4 PM,SAVE_MEMORY,tier1,typed
+Record that my backup drive label is MediaArchive_01,SAVE_MEMORY,tier1,typed
+Don't forget I parked my bike near Gate 3 today,SAVE_MEMORY,tier1,typed
+Log my study group room code as Room 412,SAVE_MEMORY,tier1,typed
+Remember my main Python environment sits in Projects\venv,SAVE_MEMORY,tier1,typed
+Save this preference: always export ONNX models with INT8 quantization,SAVE_MEMORY,tier1,typed
+Keep in memory that my lab partner's email is jordan@example.edu,SAVE_MEMORY,tier1,typed
+Store my campus locker number as L-108,SAVE_MEMORY,tier1,typed
+Add to memory: my semester presentation is in Auditorium B,SAVE_MEMORY,tier1,typed
+Remember that my project reviewer is Dr. Elena Vance,SAVE_MEMORY,tier1,typed
+Save the local server port for testing as 11434,SAVE_MEMORY,tier1,typed
+Note that my favorite code editor is VS Code,SAVE_MEMORY,tier1,typed
+Put it in your notes that I am vegetarian when ordering lunch,SAVE_MEMORY,tier1,typed
+Keep this saved: reading club meets every second Wednesday,SAVE_MEMORY,tier1,typed
+Remember our hackathon team name is NeuralForge,SAVE_MEMORY,tier1,typed
+Save that my favorite programming language is Python,SAVE_MEMORY,tier1,typed
+Record my seat row for Friday's workshop as Row F Seat 12,SAVE_MEMORY,tier1,typed
+Store the deadline for my OS assignment: Monday 11:59 PM,SAVE_MEMORY,tier1,typed
+Remember to associate 'work folder' with Projects\ClientA,SAVE_MEMORY,tier1,typed
+Save a personal preference: I drink black coffee with no sugar,SAVE_MEMORY,tier1,typed
+Make a note that our test dataset split uses random seed 42,SAVE_MEMORY,tier1,typed
+Store that my library book is due back on March 18,SAVE_MEMORY,tier1,typed
+Remember I moved my reading PDFs into Documents\Papers_2026,SAVE_MEMORY,tier1,typed
+Keep on file that my mentor's Slack handle is @maya.lin,SAVE_MEMORY,tier1,typed
+Save this snippet: local test database runs on port 5432,SAVE_MEMORY,tier1,typed
+Remember that my thesis supervisor prefers double-spaced drafts,SAVE_MEMORY,tier1,typed
+Write this down for later: campus bookstore closes at 6 PM,SAVE_MEMORY,tier1,typed
+Store my gym locker wing as North Wing,SAVE_MEMORY,tier1,typed
+Note that I left my spare USB-C cable in the study lounge,SAVE_MEMORY,tier1,typed
+Save my conference registration code as CONF-8829,SAVE_MEMORY,tier1,typed
+Remember I promised to send the final slides to Sam tomorrow,SAVE_MEMORY,tier1,typed
+Record that my test sandbox account username is demo_tester,SAVE_MEMORY,tier1,typed
+Keep this detail: my external monitor resolution is 1920x1080,SAVE_MEMORY,tier1,typed
+Remember the summer internship portal opens on January 10,SAVE_MEMORY,tier1,typed
+Save that my sister's graduation ceremony is on June 18,SAVE_MEMORY,tier1,typed
+Log this fact: our staging API endpoint is localhost:8080,SAVE_MEMORY,tier1,typed
+Remember I prefer dark mode in all desktop widgets,SAVE_MEMORY,tier1,typed
+Store the ISBN of my AI textbook: 978-0134610993,SAVE_MEMORY,tier1,typed
+Save that my team's shared board is called SprintBoard_Q4,SAVE_MEMORY,tier1,typed
+Note for future recall: my research topic is local intent routing,SAVE_MEMORY,tier1,typed
+Remember my morning shuttle leaves at 7:25 AM sharp,SAVE_MEMORY,tier1,typed
+Store that my conference paper abstract limit is 250 words,SAVE_MEMORY,tier1,typed
+Save my Zoom study room meeting ID as 884-219-0041,SAVE_MEMORY,tier1,typed
+Keep a record that I lent my graphing calculator to Chris,SAVE_MEMORY,tier1,typed
+Remember my default model output folder is models\tier1_router,SAVE_MEMORY,tier1,typed
+Log my dorm building name as Maple Hall,SAVE_MEMORY,tier1,typed
+Save the target frame rate for my demo recording as 60 fps,SAVE_MEMORY,tier1,typed
+Note that my favorite Python linter is ruff,SAVE_MEMORY,tier1,typed
+Remember I need to renew my domain name before March 15,SAVE_MEMORY,tier1,typed
+Store this preference: speak replies only when voice is unmuted,SAVE_MEMORY,tier1,typed
+Hold onto this detail: my design lead's email is priya@example.org,SAVE_MEMORY,tier1,typed
+Keep my semester GPA goal of 3.7 in your memory,SAVE_MEMORY,tier1,typed
+Tuck away this note: spare desk key is inside the blue organizer,SAVE_MEMORY,tier1,typed
+Lock in the fact that the Friday seminar starts in Hall B at 10:15,SAVE_MEMORY,tier1,typed
+File away that our local assistant notes live in data\memory.db,SAVE_MEMORY,tier1,typed
+Save the name of the book Dr. Smith recommended: Designing Data-Intensive Applications,SAVE_MEMORY,tier1,typed
+Mark down that my mock interview is scheduled for Thursday morning,SAVE_MEMORY,tier1,typed
+hey jude remember my advisor email is dr smith at example dot edu,SAVE_MEMORY,tier1,voice
+jude save my course section as c s three zero one section b,SAVE_MEMORY,tier1,voice
+uh can you remember i parked near gate three today,SAVE_MEMORY,tier1,voice
+dont let me forget my lab is in room c three zero four,SAVE_MEMORY,tier1,voice
+keep in mind my teammate handle is alex dot dev,SAVE_MEMORY,tier1,voice
+hey jude store our team standup time as nine thirty am,SAVE_MEMORY,tier1,voice
+remember that i prefer short bullet point answers,SAVE_MEMORY,tier1,voice
+jude note down my dentist appointment is december third,SAVE_MEMORY,tier1,voice
+please save my brother birthday is april fourteen,SAVE_MEMORY,tier1,voice
+can you save this fact my demo folder is projects demo app,SAVE_MEMORY,tier1,voice
+hey jude dont forget my ai lab submission is due friday five pm,SAVE_MEMORY,tier1,voice
+store in memory that my lab partner jordan email is jordan at example dot edu,SAVE_MEMORY,tier1,voice
+remember our study group meets in room four twelve,SAVE_MEMORY,tier1,voice
+jude keep track that i left my spare cable in the study lounge,SAVE_MEMORY,tier1,voice
+uh remember my favorite language is python,SAVE_MEMORY,tier1,voice
+save a note that my morning shuttle leaves at seven twenty five am,SAVE_MEMORY,tier1,voice
+hey jude log that i lent my graphing calculator to chris last week,SAVE_MEMORY,tier1,voice
+keep this in mind my thesis advisor wants ieee citations,SAVE_MEMORY,tier1,voice
+jude store my dorm building as maple hall,SAVE_MEMORY,tier1,voice
+remember i drink black coffee without any sugar,SAVE_MEMORY,tier1,voice
+can you remember the internship portal opens january tenth,SAVE_MEMORY,tier1,voice
+hey jude put this in your notes campus bookstore closes at six pm,SAVE_MEMORY,tier1,voice
+save this detail my backup drive is labeled media archive zero one,SAVE_MEMORY,tier1,voice
+remember my workshop seat is row f seat twelve,SAVE_MEMORY,tier1,voice
+jude note that my campus locker is l one zero eight,SAVE_MEMORY,tier1,voice
+hold onto this for me my zoom study room id is eight eight four two one nine,SAVE_MEMORY,tier1,voice
+uh jude save that i prefer vegetarian meals for team lunches,SAVE_MEMORY,tier1,voice
+remember our local test server runs on port eleven four three four,SAVE_MEMORY,tier1,voice
+hey jude store that my os assignment deadline is monday midnight,SAVE_MEMORY,tier1,voice
+keep saved that the reading club meets every second wednesday,SAVE_MEMORY,tier1,voice
+jude remember our hackathon team is named neural forge,SAVE_MEMORY,tier1,voice
+can you note down my library book is due march eighteen,SAVE_MEMORY,tier1,voice
+remember i moved my reading pdfs into documents papers,SAVE_MEMORY,tier1,voice
+hey jude save my favorite editor is vs code,SAVE_MEMORY,tier1,voice
+dont let me forget to send the final slides to sam tomorrow,SAVE_MEMORY,tier1,voice
+jude store my gym locker wing as north wing,SAVE_MEMORY,tier1,voice
+keep in memory our dataset split uses random seed forty two,SAVE_MEMORY,tier1,voice
+remember my conference code is conf eight eight two nine,SAVE_MEMORY,tier1,voice
+hey jude record that my sister graduation is on june eighteen,SAVE_MEMORY,tier1,voice
+uh save this preference keep responses brief and direct,SAVE_MEMORY,tier1,voice
+jude remember my domain name renews march fifteen,SAVE_MEMORY,tier1,voice
+store that my research topic is two tier intent routing,SAVE_MEMORY,tier1,voice
+hey jude note my mentor slack handle is maya lin,SAVE_MEMORY,tier1,voice
+keep track that my preferred citation style is ieee,SAVE_MEMORY,tier1,voice
+remember our shared board is called sprint board q four,SAVE_MEMORY,tier1,voice
+jude save that the conference abstract limit is two hundred fifty words,SAVE_MEMORY,tier1,voice
+uh please remember my mock interview is thursday at ten am,SAVE_MEMORY,tier1,voice
+hey jude lock this in our test database runs on port fifty four thirty two,SAVE_MEMORY,tier1,voice
+remember the spare desk key is inside the blue organizer,SAVE_MEMORY,tier1,voice
+jude save the book title designing data intensive applications,SAVE_MEMORY,tier1,voice
+What is my advisor's email address?,RECALL_MEMORY,tier1,typed
+Recall my course section number,RECALL_MEMORY,tier1,typed
+When is my AI lab submission due?,RECALL_MEMORY,tier1,typed
+What room is our capstone meeting in?,RECALL_MEMORY,tier1,typed
+Look up what time our team standup starts,RECALL_MEMORY,tier1,typed
+Where did I park my bike today?,RECALL_MEMORY,tier1,typed
+Which room is my study group booked in?,RECALL_MEMORY,tier1,typed
+Remind me when my dentist appointment is,RECALL_MEMORY,tier1,typed
+What did I save as my teammate's handle?,RECALL_MEMORY,tier1,typed
+Check your memory for my brother's birthday,RECALL_MEMORY,tier1,typed
+What are Prof. Taylor's office hours?,RECALL_MEMORY,tier1,typed
+Which email did I save as my secondary study address?,RECALL_MEMORY,tier1,typed
+What is my campus locker number?,RECALL_MEMORY,tier1,typed
+Tell me my lab partner Jordan's email,RECALL_MEMORY,tier1,typed
+What did I store about my project reviewer?,RECALL_MEMORY,tier1,typed
+Which folder did I say my main Python environment sits in?,RECALL_MEMORY,tier1,typed
+Recall my favorite programming language,RECALL_MEMORY,tier1,typed
+What seat row did I save for Friday's workshop?,RECALL_MEMORY,tier1,typed
+Where did I leave my spare USB-C cable?,RECALL_MEMORY,tier1,typed
+Who did I lend my graphing calculator to?,RECALL_MEMORY,tier1,typed
+What is my dorm building name?,RECALL_MEMORY,tier1,typed
+Remind me what citation format my thesis supervisor prefers,RECALL_MEMORY,tier1,typed
+What is the ISBN of my AI textbook?,RECALL_MEMORY,tier1,typed
+Look up my conference registration code,RECALL_MEMORY,tier1,typed
+When is my library book due back?,RECALL_MEMORY,tier1,typed
+What time does my morning shuttle leave?,RECALL_MEMORY,tier1,typed
+Where did I say I put my spare desk key?,RECALL_MEMORY,tier1,typed
+When did I say the reading club meets?,RECALL_MEMORY,tier1,typed
+Check my saved notes for the local server port,RECALL_MEMORY,tier1,typed
+What is our hackathon team name?,RECALL_MEMORY,tier1,typed
+Tell me what I saved about my meal preference,RECALL_MEMORY,tier1,typed
+Which folder did I move my reading PDFs into?,RECALL_MEMORY,tier1,typed
+What is my Zoom study room meeting ID?,RECALL_MEMORY,tier1,typed
+Recall which gym locker wing I use,RECALL_MEMORY,tier1,typed
+What did I tell you about my coffee preference?,RECALL_MEMORY,tier1,typed
+When is my sister's graduation ceremony?,RECALL_MEMORY,tier1,typed
+What is the conference paper abstract word limit I saved?,RECALL_MEMORY,tier1,typed
+Remind me of the book title Dr. Smith recommended,RECALL_MEMORY,tier1,typed
+What did I store for our staging API endpoint?,RECALL_MEMORY,tier1,typed
+Look up my design lead Priya's email,RECALL_MEMORY,tier1,typed
+What is my semester GPA goal?,RECALL_MEMORY,tier1,typed
+When do I need to renew my domain name?,RECALL_MEMORY,tier1,typed
+What frame rate did I save for demo recordings?,RECALL_MEMORY,tier1,typed
+Pull up the OS assignment deadline I asked you to save,RECALL_MEMORY,tier1,typed
+What did I say my backup drive label is?,RECALL_MEMORY,tier1,typed
+Check my personal memory for the test database port,RECALL_MEMORY,tier1,typed
+Which hall is the Friday seminar in?,RECALL_MEMORY,tier1,typed
+What random seed did I store for the dataset split?,RECALL_MEMORY,tier1,typed
+Remind me what my mentor's Slack handle is,RECALL_MEMORY,tier1,typed
+What is the name of our team's shared board?,RECALL_MEMORY,tier1,typed
+Did I save anything about when the campus bookstore closes?,RECALL_MEMORY,tier1,typed
+Look through my stored facts for my mock interview day,RECALL_MEMORY,tier1,typed
+What username did I save for the test sandbox account?,RECALL_MEMORY,tier1,typed
+What did I tell you to associate with 'work folder'?,RECALL_MEMORY,tier1,typed
+Search my local memory for anything about Auditorium B,RECALL_MEMORY,tier1,typed
+Recall all details I saved regarding the summer internship portal,RECALL_MEMORY,tier1,typed
+What Python linter did I say I prefer?,RECALL_MEMORY,tier1,typed
+Check my saved preferences for summary formatting,RECALL_MEMORY,tier1,typed
+Where did I say our local assistant notes live?,RECALL_MEMORY,tier1,typed
+Remind me what I promised to send Sam,RECALL_MEMORY,tier1,typed
+What model quantization format did I ask you to remember?,RECALL_MEMORY,tier1,typed
+Read back the note I stored about my research topic,RECALL_MEMORY,tier1,typed
+Do you remember my external monitor resolution?,RECALL_MEMORY,tier1,typed
+Find the course name I saved for this semester,RECALL_MEMORY,tier1,typed
+Look up the email address I stored for my advisor earlier,RECALL_MEMORY,tier1,typed
+Check what I wrote down about my bike parking spot,RECALL_MEMORY,tier1,typed
+Retrieve my saved note on where model outputs go,RECALL_MEMORY,tier1,typed
+What did I ask you to remember about voice replies?,RECALL_MEMORY,tier1,typed
+Tell me the date I saved for the internship portal opening,RECALL_MEMORY,tier1,typed
+Pull my stored reminder about the Thursday mock interview,RECALL_MEMORY,tier1,typed
+hey jude what is my advisor email address,RECALL_MEMORY,tier1,voice
+jude recall my course section number,RECALL_MEMORY,tier1,voice
+where did i park my bike today,RECALL_MEMORY,tier1,voice
+uh what room does my study group meet in,RECALL_MEMORY,tier1,voice
+hey jude remind me when my dentist appointment is,RECALL_MEMORY,tier1,voice
+what did i tell you our team standup time was,RECALL_MEMORY,tier1,voice
+jude check your memory for my brother birthday,RECALL_MEMORY,tier1,voice
+who did i lend my graphing calculator to,RECALL_MEMORY,tier1,voice
+hey jude where did i leave my spare usb cable,RECALL_MEMORY,tier1,voice
+what room is our capstone meeting in,RECALL_MEMORY,tier1,voice
+jude tell me my dorm building name,RECALL_MEMORY,tier1,voice
+uh what is my campus locker number,RECALL_MEMORY,tier1,voice
+hey jude look up my conference registration code,RECALL_MEMORY,tier1,voice
+when is my library book due back,RECALL_MEMORY,tier1,voice
+jude what time does my morning shuttle leave,RECALL_MEMORY,tier1,voice
+remind me where i put the spare desk key,RECALL_MEMORY,tier1,voice
+hey jude what is my favorite programming language,RECALL_MEMORY,tier1,voice
+what seat row did i save for friday workshop,RECALL_MEMORY,tier1,voice
+jude check what i saved for prof taylor office hours,RECALL_MEMORY,tier1,voice
+uh what citation style does my supervisor prefer,RECALL_MEMORY,tier1,voice
+hey jude what is my zoom study room id,RECALL_MEMORY,tier1,voice
+can you look up which gym locker wing i use,RECALL_MEMORY,tier1,voice
+what did i store about my coffee preference,RECALL_MEMORY,tier1,voice
+jude when is my sister graduation ceremony,RECALL_MEMORY,tier1,voice
+what book did dr smith recommend to me,RECALL_MEMORY,tier1,voice
+hey jude look up priya email from my notes,RECALL_MEMORY,tier1,voice
+what is my semester gpa goal,RECALL_MEMORY,tier1,voice
+jude when does my domain name renew,RECALL_MEMORY,tier1,voice
+uh what was the os assignment deadline i saved,RECALL_MEMORY,tier1,voice
+hey jude which folder did i move my reading pdfs to,RECALL_MEMORY,tier1,voice
+what is our hackathon team name,RECALL_MEMORY,tier1,voice
+jude remind me of my meal preference for lunches,RECALL_MEMORY,tier1,voice
+what port did i save for the local test server,RECALL_MEMORY,tier1,voice
+hey jude tell me my project reviewer name,RECALL_MEMORY,tier1,voice
+check my personal notes for the bookstore closing time,RECALL_MEMORY,tier1,voice
+jude what is my teammate handle,RECALL_MEMORY,tier1,voice
+uh what did i save as my work folder path,RECALL_MEMORY,tier1,voice
+hey jude when does the summer internship portal open,RECALL_MEMORY,tier1,voice
+when did i say the reading club meets,RECALL_MEMORY,tier1,voice
+jude read back my saved note about my mock interview,RECALL_MEMORY,tier1,voice
+which hall is the friday seminar in,RECALL_MEMORY,tier1,voice
+hey jude what is our shared sprint board called,RECALL_MEMORY,tier1,voice
+recall my backup drive label,RECALL_MEMORY,tier1,voice
+jude what frame rate did i save for recordings,RECALL_MEMORY,tier1,voice
+uh what did i say my favorite python linter is,RECALL_MEMORY,tier1,voice
+hey jude look up my sandbox test username,RECALL_MEMORY,tier1,voice
+what was my abstract word limit again,RECALL_MEMORY,tier1,voice
+jude check my memory for our dataset random seed,RECALL_MEMORY,tier1,voice
+what did i promise to send sam,RECALL_MEMORY,tier1,voice
+hey jude pull up what you remember about my study email,RECALL_MEMORY,tier1,voice
+Open my Downloads folder,OPEN_TARGET,tier1,typed
+Launch Microsoft Word,OPEN_TARGET,tier1,typed
+Open Projects\App in File Explorer,OPEN_TARGET,tier1,typed
+Start Visual Studio Code,OPEN_TARGET,tier1,typed
+Open Notepad,OPEN_TARGET,tier1,typed
+Launch Windows Calculator,OPEN_TARGET,tier1,typed
+Show me my Desktop folder,OPEN_TARGET,tier1,typed
+Open the Documents directory,OPEN_TARGET,tier1,typed
+Open Task Manager,OPEN_TARGET,tier1,typed
+Launch Google Chrome,OPEN_TARGET,tier1,typed
+Open Microsoft Edge,OPEN_TARGET,tier1,typed
+Navigate to Projects\App\src in Explorer,OPEN_TARGET,tier1,typed
+Open Windows Terminal,OPEN_TARGET,tier1,typed
+Launch PowerShell,OPEN_TARGET,tier1,typed
+Open my Pictures folder,OPEN_TARGET,tier1,typed
+Open Workspace\Notebooks,OPEN_TARGET,tier1,typed
+Start Windows Settings,OPEN_TARGET,tier1,typed
+Open Control Panel,OPEN_TARGET,tier1,typed
+Open Projects\App\README.md,OPEN_TARGET,tier1,typed
+Launch Microsoft Excel,OPEN_TARGET,tier1,typed
+Open Microsoft PowerPoint,OPEN_TARGET,tier1,typed
+Show me the main workspace drive in Explorer,OPEN_TARGET,tier1,typed
+Open C:\Users\User\Downloads,OPEN_TARGET,tier1,typed
+Launch Snipping Tool,OPEN_TARGET,tier1,typed
+Open Paint,OPEN_TARGET,tier1,typed
+Open models\tier1_router in File Explorer,OPEN_TARGET,tier1,typed
+Open Device Manager,OPEN_TARGET,tier1,typed
+Launch Spotify,OPEN_TARGET,tier1,typed
+Open the Recycle Bin,OPEN_TARGET,tier1,typed
+Navigate to Projects\Reports,OPEN_TARGET,tier1,typed
+Open Workspace\verify_setup.py in the default editor,OPEN_TARGET,tier1,typed
+Launch Windows File Explorer,OPEN_TARGET,tier1,typed
+Open my Videos folder,OPEN_TARGET,tier1,typed
+Start OBS Studio,OPEN_TARGET,tier1,typed
+Open VLC Media Player,OPEN_TARGET,tier1,typed
+Open Documents\Backups,OPEN_TARGET,tier1,typed
+Launch Discord,OPEN_TARGET,tier1,typed
+Open the Windows Clock app,OPEN_TARGET,tier1,typed
+Go to Documents\Papers_2026 in Explorer,OPEN_TARGET,tier1,typed
+Open Microsoft Store,OPEN_TARGET,tier1,typed
+Launch Git Bash,OPEN_TARGET,tier1,typed
+Open Projects\App\requirements.txt,OPEN_TARGET,tier1,typed
+Open Resource Monitor,OPEN_TARGET,tier1,typed
+Start Windows Media Player,OPEN_TARGET,tier1,typed
+Open my Music folder,OPEN_TARGET,tier1,typed
+Launch Notepad++,OPEN_TARGET,tier1,typed
+Open Workspace\data,OPEN_TARGET,tier1,typed
+Open Command Prompt,OPEN_TARGET,tier1,typed
+Launch 7-Zip File Manager,OPEN_TARGET,tier1,typed
+Open the Windows Sound settings page,OPEN_TARGET,tier1,typed
+Bring up my Downloads directory,OPEN_TARGET,tier1,typed
+Fire up VS Code for me,OPEN_TARGET,tier1,typed
+Pop open Calculator right now,OPEN_TARGET,tier1,typed
+Take me to Projects\models,OPEN_TARGET,tier1,typed
+Open the src folder inside Projects\App,OPEN_TARGET,tier1,typed
+Launch Microsoft Teams,OPEN_TARGET,tier1,typed
+Open my OneDrive folder,OPEN_TARGET,tier1,typed
+Open Projects\App\config.yaml,OPEN_TARGET,tier1,typed
+Start Windows Magnifier,OPEN_TARGET,tier1,typed
+Open Bluetooth settings,OPEN_TARGET,tier1,typed
+Show me Workspace\datasets\sample.csv,OPEN_TARGET,tier1,typed
+Launch Adobe Acrobat Reader,OPEN_TARGET,tier1,typed
+Open Disk Management,OPEN_TARGET,tier1,typed
+Take me to the Startup Apps settings,OPEN_TARGET,tier1,typed
+Open Python IDLE,OPEN_TARGET,tier1,typed
+Open Projects\App\launch.ps1,OPEN_TARGET,tier1,typed
+Launch the Sticky Notes app,OPEN_TARGET,tier1,typed
+Open my local C: drive in Explorer,OPEN_TARGET,tier1,typed
+Pull up Task Scheduler,OPEN_TARGET,tier1,typed
+Open my Semester_Notes folder,OPEN_TARGET,tier1,typed
+hey jude open my downloads folder,OPEN_TARGET,tier1,voice
+jude launch microsoft word,OPEN_TARGET,tier1,voice
+open projects app folder in explorer,OPEN_TARGET,tier1,voice
+uh start visual studio code,OPEN_TARGET,tier1,voice
+hey jude open notepad,OPEN_TARGET,tier1,voice
+launch calculator please,OPEN_TARGET,tier1,voice
+jude show me my desktop folder,OPEN_TARGET,tier1,voice
+please open my documents directory,OPEN_TARGET,tier1,voice
+hey jude pull up task manager,OPEN_TARGET,tier1,voice
+open google chrome,OPEN_TARGET,tier1,voice
+jude launch microsoft edge,OPEN_TARGET,tier1,voice
+open windows terminal for me,OPEN_TARGET,tier1,voice
+uh start powershell,OPEN_TARGET,tier1,voice
+hey jude open my pictures folder,OPEN_TARGET,tier1,voice
+open my workspace drive in explorer,OPEN_TARGET,tier1,voice
+jude open windows settings,OPEN_TARGET,tier1,voice
+can you launch snipping tool for me,OPEN_TARGET,tier1,voice
+hey jude open paint,OPEN_TARGET,tier1,voice
+open microsoft excel,OPEN_TARGET,tier1,voice
+jude start powerpoint,OPEN_TARGET,tier1,voice
+please open the recycle bin,OPEN_TARGET,tier1,voice
+uh take me to documents backups,OPEN_TARGET,tier1,voice
+hey jude fire up vs code,OPEN_TARGET,tier1,voice
+launch command prompt right now,OPEN_TARGET,tier1,voice
+jude launch vlc media player,OPEN_TARGET,tier1,voice
+jude open my music folder on this pc,OPEN_TARGET,tier1,voice
+hey jude open my videos folder,OPEN_TARGET,tier1,voice
+open windows control panel please,OPEN_TARGET,tier1,voice
+jude start device manager,OPEN_TARGET,tier1,voice
+pop open file explorer,OPEN_TARGET,tier1,voice
+hey jude open the project readme file,OPEN_TARGET,tier1,voice
+jude open my onedrive folder,OPEN_TARGET,tier1,voice
+jude launch sticky notes,OPEN_TARGET,tier1,voice
+uh open bluetooth settings,OPEN_TARGET,tier1,voice
+hey jude show me the notebooks folder,OPEN_TARGET,tier1,voice
+open microsoft teams,OPEN_TARGET,tier1,voice
+jude start discord,OPEN_TARGET,tier1,voice
+open seven zip file manager,OPEN_TARGET,tier1,voice
+hey jude open sound settings,OPEN_TARGET,tier1,voice
+take me to projects reports,OPEN_TARGET,tier1,voice
+jude launch adobe reader,OPEN_TARGET,tier1,voice
+uh open disk management,OPEN_TARGET,tier1,voice
+hey jude open the models folder,OPEN_TARGET,tier1,voice
+open windows clock app,OPEN_TARGET,tier1,voice
+jude start git bash,OPEN_TARGET,tier1,voice
+open notepad plus plus,OPEN_TARGET,tier1,voice
+hey jude open resource monitor,OPEN_TARGET,tier1,voice
+open my semester notes folder,OPEN_TARGET,tier1,voice
+jude launch python idle,OPEN_TARGET,tier1,voice
+hey jude bring up the workspace data directory,OPEN_TARGET,tier1,voice
+Compress my semester notes folder into a zip file,COMPRESS_FILES,tier1,typed
+Zip up Workspace\Notebooks for submission,COMPRESS_FILES,tier1,typed
+Create a zip archive of my Downloads\Assignments folder,COMPRESS_FILES,tier1,typed
+Archive Documents\Receipts_2026 into receipts_2026.zip,COMPRESS_FILES,tier1,typed
+Bundle all files in Projects\Capstone into a single zip,COMPRESS_FILES,tier1,typed
+Compress the Desktop\Photos folder,COMPRESS_FILES,tier1,typed
+Pack Projects\App into app_backup.zip,COMPRESS_FILES,tier1,typed
+Zip my Lab_Reports folder,COMPRESS_FILES,tier1,typed
+Make a compressed archive of C:\Users\User\Documents\CV_Drafts,COMPRESS_FILES,tier1,typed
+Shrink my semester notes folder so it fits in email,COMPRESS_FILES,tier1,typed
+Compress Workspace\data into a zip archive,COMPRESS_FILES,tier1,typed
+Zip the folder Semester6\AI_Lab,COMPRESS_FILES,tier1,typed
+Turn Projects\DemoAssets into demo_assets.zip,COMPRESS_FILES,tier1,typed
+Archive my invoices folder into a zip package,COMPRESS_FILES,tier1,typed
+Compress all PDFs inside Documents\Readings into readings.zip,COMPRESS_FILES,tier1,typed
+Create an archive from my Desktop\Submission directory,COMPRESS_FILES,tier1,typed
+Zip up the screenshots folder in Pictures,COMPRESS_FILES,tier1,typed
+Package Workspace\datasets\train.csv into a zip,COMPRESS_FILES,tier1,typed
+Compress my Python scripts folder,COMPRESS_FILES,tier1,typed
+Make a zip file out of Music\Podcasts,COMPRESS_FILES,tier1,typed
+Zip Work\ClientExports and save it in Backups,COMPRESS_FILES,tier1,typed
+Bundle my lab report and slides into submission.zip,COMPRESS_FILES,tier1,typed
+Compress the logs directory inside Projects\App,COMPRESS_FILES,tier1,typed
+Archive my old project files in Archive\2025,COMPRESS_FILES,tier1,typed
+Create a .zip of Documents\Certificates,COMPRESS_FILES,tier1,typed
+Shrink Videos\ScreenCaptures into a compressed zip,COMPRESS_FILES,tier1,typed
+Pack my resume and cover letter folder into application.zip,COMPRESS_FILES,tier1,typed
+Zip the entire StudyMaterial\ML directory,COMPRESS_FILES,tier1,typed
+Compress Datasets\RawCSVs to save disk space,COMPRESS_FILES,tier1,typed
+Make a compressed copy of Projects\App\ui,COMPRESS_FILES,tier1,typed
+Bundle Photos\Graduation into graduation.zip,COMPRESS_FILES,tier1,typed
+Archive Notes\OS_Midterm as a zip file,COMPRESS_FILES,tier1,typed
+Zip up the folder called Lab04 on my Desktop,COMPRESS_FILES,tier1,typed
+Compress my Downloads\Datasets directory,COMPRESS_FILES,tier1,typed
+Create a zip backup of Projects\Website,COMPRESS_FILES,tier1,typed
+Pack all files in TempExport into export.zip,COMPRESS_FILES,tier1,typed
+Shrink my large folder Presentations into a zip,COMPRESS_FILES,tier1,typed
+Zip the models\tier1_router folder,COMPRESS_FILES,tier1,typed
+Archive my scanned forms folder into forms.zip,COMPRESS_FILES,tier1,typed
+Compress Assignments\CompilerDesign,COMPRESS_FILES,tier1,typed
+Make a zip bundle from Code\Snippets,COMPRESS_FILES,tier1,typed
+Zip up my research papers folder,COMPRESS_FILES,tier1,typed
+Compress Desktop\VivaPrep for sharing,COMPRESS_FILES,tier1,typed
+Create a compressed zip of Backups\latest,COMPRESS_FILES,tier1,typed
+Pack Documents\Contracts into contracts_archive.zip,COMPRESS_FILES,tier1,typed
+Bundle the contents of Downloads\Receipts into a zip,COMPRESS_FILES,tier1,typed
+Zip my React app source folder excluding node_modules,COMPRESS_FILES,tier1,typed
+Archive Projects\App\tier1 into tier1_src.zip,COMPRESS_FILES,tier1,typed
+Compress the folder Templates into templates.zip,COMPRESS_FILES,tier1,typed
+Make a single zip archive out of Fonts,COMPRESS_FILES,tier1,typed
+Squeeze my Lectures folder into a zip file,COMPRESS_FILES,tier1,typed
+Turn my Homework directory into a portable zip,COMPRESS_FILES,tier1,typed
+Roll Workspace\Notebooks files into a compressed bundle,COMPRESS_FILES,tier1,typed
+Save space by zipping Backups\OldLogs,COMPRESS_FILES,tier1,typed
+Package up Shared\DesignFiles as design_files.zip,COMPRESS_FILES,tier1,typed
+Compress Pictures\Wallpapers into wallpapers.zip,COMPRESS_FILES,tier1,typed
+Create a zip archive for Documents\Forms,COMPRESS_FILES,tier1,typed
+Zip my C:\Users\User\Desktop\Export folder,COMPRESS_FILES,tier1,typed
+Bundle Courses\DeepLearning into dl_notes.zip,COMPRESS_FILES,tier1,typed
+Compress Projects\ArduinoCode into arduino.zip,COMPRESS_FILES,tier1,typed
+Archive Projects\App\router into router_code.zip,COMPRESS_FILES,tier1,typed
+Pack my Downloads\Invoices into a single compressed file,COMPRESS_FILES,tier1,typed
+Zip Study\DSA_Problems right now,COMPRESS_FILES,tier1,typed
+Compress the AudioClips folder,COMPRESS_FILES,tier1,typed
+Make a zip file from Spreadsheets,COMPRESS_FILES,tier1,typed
+Shrink Docs\ThesisDrafts into thesis_drafts.zip,COMPRESS_FILES,tier1,typed
+Archive my Desktop\LabWork folder into a zip,COMPRESS_FILES,tier1,typed
+Bundle config.py and README.md into a zip,COMPRESS_FILES,tier1,typed
+Compress Projects\MobileApp\assets,COMPRESS_FILES,tier1,typed
+Zip up my Certificates_Scan folder,COMPRESS_FILES,tier1,typed
+hey jude compress my semester notes folder into a zip,COMPRESS_FILES,tier1,voice
+jude zip up the notebooks folder,COMPRESS_FILES,tier1,voice
+create a zip archive of my assignments folder,COMPRESS_FILES,tier1,voice
+uh shrink my semester notes folder so it fits in email,COMPRESS_FILES,tier1,voice
+hey jude bundle all files in projects capstone into a zip,COMPRESS_FILES,tier1,voice
+zip my desktop photos folder,COMPRESS_FILES,tier1,voice
+jude pack projects app into a zip file,COMPRESS_FILES,tier1,voice
+compress my lab reports folder,COMPRESS_FILES,tier1,voice
+hey jude make a zip archive of my receipts folder,COMPRESS_FILES,tier1,voice
+zip up the ai lab folder on my workspace,COMPRESS_FILES,tier1,voice
+jude archive my invoices folder into a zip,COMPRESS_FILES,tier1,voice
+uh compress all pdfs in documents readings,COMPRESS_FILES,tier1,voice
+hey jude turn desktop submission into a zip file,COMPRESS_FILES,tier1,voice
+zip the screenshots folder in pictures,COMPRESS_FILES,tier1,voice
+jude compress my python scripts folder,COMPRESS_FILES,tier1,voice
+pack my resume folder into a zip package,COMPRESS_FILES,tier1,voice
+hey jude zip the deep learning study material folder,COMPRESS_FILES,tier1,voice
+compress datasets raw csvs to save space,COMPRESS_FILES,tier1,voice
+jude bundle my graduation photos into a zip,COMPRESS_FILES,tier1,voice
+uh zip up lab four on my desktop,COMPRESS_FILES,tier1,voice
+hey jude archive my os midterm notes as a zip,COMPRESS_FILES,tier1,voice
+compress my downloads datasets folder,COMPRESS_FILES,tier1,voice
+jude make a zip backup of projects website,COMPRESS_FILES,tier1,voice
+shrink my presentations folder into a zip,COMPRESS_FILES,tier1,voice
+hey jude zip the tier one router models folder,COMPRESS_FILES,tier1,voice
+compress my compiler design assignments folder,COMPRESS_FILES,tier1,voice
+jude bundle my research papers folder,COMPRESS_FILES,tier1,voice
+uh pack my contracts folder into a zip archive,COMPRESS_FILES,tier1,voice
+hey jude squeeze my lectures folder into a zip file,COMPRESS_FILES,tier1,voice
+zip up my viva prep folder for sharing,COMPRESS_FILES,tier1,voice
+jude archive my old logs folder to save disk space,COMPRESS_FILES,tier1,voice
+compress the templates folder,COMPRESS_FILES,tier1,voice
+hey jude package up my design files as a zip,COMPRESS_FILES,tier1,voice
+zip my wallpapers folder in pictures,COMPRESS_FILES,tier1,voice
+jude create a zip archive of my forms folder,COMPRESS_FILES,tier1,voice
+uh compress my arduino code folder,COMPRESS_FILES,tier1,voice
+hey jude bundle my downloads receipts into a zip,COMPRESS_FILES,tier1,voice
+zip my dsa problems folder right now,COMPRESS_FILES,tier1,voice
+jude compress the audio clips folder,COMPRESS_FILES,tier1,voice
+make a zip file from my spreadsheets folder,COMPRESS_FILES,tier1,voice
+hey jude shrink my thesis drafts folder into a zip,COMPRESS_FILES,tier1,voice
+archive my desktop lab work folder into a zip,COMPRESS_FILES,tier1,voice
+jude zip up my certificates scan folder,COMPRESS_FILES,tier1,voice
+uh compress my workspace data folder,COMPRESS_FILES,tier1,voice
+hey jude turn my homework folder into a zip,COMPRESS_FILES,tier1,voice
+pack my mobile app assets into a zip file,COMPRESS_FILES,tier1,voice
+jude zip the scanned forms folder,COMPRESS_FILES,tier1,voice
+compress my podcasts folder,COMPRESS_FILES,tier1,voice
+hey jude bundle the code snippets folder,COMPRESS_FILES,tier1,voice
+jude create a compressed backup of my router folder,COMPRESS_FILES,tier1,voice
+How much free space is left on my main drive?,SYSTEM_INFO,tier1,typed
+Check my current battery percentage,SYSTEM_INFO,tier1,typed
+What is my CPU and RAM usage right now?,SYSTEM_INFO,tier1,typed
+Show me the free storage across my mounted drives,SYSTEM_INFO,tier1,typed
+What time is it?,SYSTEM_INFO,tier1,typed
+What is today's date?,SYSTEM_INFO,tier1,typed
+Check how much VRAM my GPU has available,SYSTEM_INFO,tier1,typed
+Is my laptop plugged in or running on battery?,SYSTEM_INFO,tier1,typed
+How much disk space is the current project folder using?,SYSTEM_INFO,tier1,typed
+Tell me my Windows 11 build version,SYSTEM_INFO,tier1,typed
+What is my current local IP address?,SYSTEM_INFO,tier1,typed
+Check if I am connected to Wi-Fi or Ethernet,SYSTEM_INFO,tier1,typed
+How much total RAM does this system have?,SYSTEM_INFO,tier1,typed
+Show my CPU core and thread count,SYSTEM_INFO,tier1,typed
+How long has my computer been turned on?,SYSTEM_INFO,tier1,typed
+Check if Ollama is currently running on port 11434,SYSTEM_INFO,tier1,typed
+What is the system uptime right now?,SYSTEM_INFO,tier1,typed
+How much memory is Python using?,SYSTEM_INFO,tier1,typed
+Tell me my current screen resolution,SYSTEM_INFO,tier1,typed
+Check the temperature or load of my processor,SYSTEM_INFO,tier1,typed
+What is my computer's hostname?,SYSTEM_INFO,tier1,typed
+How many gigabytes are free on drive C:?,SYSTEM_INFO,tier1,typed
+Check whether my microphone input device is detected,SYSTEM_INFO,tier1,typed
+Show my active audio output speaker device,SYSTEM_INFO,tier1,typed
+How fast is my CPU clock speed right now?,SYSTEM_INFO,tier1,typed
+Check how many processes are currently running,SYSTEM_INFO,tier1,typed
+Tell me which GPU is installed on this machine,SYSTEM_INFO,tier1,typed
+Is my battery charging right now?,SYSTEM_INFO,tier1,typed
+How much battery time is remaining?,SYSTEM_INFO,tier1,typed
+Show the free space percentage on my secondary partition,SYSTEM_INFO,tier1,typed
+Check my Python version in the active virtual environment,SYSTEM_INFO,tier1,typed
+What day of the week is it today?,SYSTEM_INFO,tier1,typed
+Tell me the size of the local models directory,SYSTEM_INFO,tier1,typed
+Check if my internet connection is online,SYSTEM_INFO,tier1,typed
+How much RAM is currently available?,SYSTEM_INFO,tier1,typed
+Show the top 5 memory-consuming apps right now,SYSTEM_INFO,tier1,typed
+What is my active Windows account and device name?,SYSTEM_INFO,tier1,typed
+Check if Bluetooth is currently turned on,SYSTEM_INFO,tier1,typed
+How full is my workspace disk partition?,SYSTEM_INFO,tier1,typed
+Tell me my current timezone and system clock,SYSTEM_INFO,tier1,typed
+Check if my discrete GPU driver is active,SYSTEM_INFO,tier1,typed
+How much space is the local cache folder taking up?,SYSTEM_INFO,tier1,typed
+Show me a quick hardware summary of this laptop,SYSTEM_INFO,tier1,typed
+Are there any background Python processes running?,SYSTEM_INFO,tier1,typed
+Check the drive letters currently mounted in Windows,SYSTEM_INFO,tier1,typed
+What is the current battery health or charge level?,SYSTEM_INFO,tier1,typed
+Tell me how much virtual memory is allocated,SYSTEM_INFO,tier1,typed
+Check if port 11434 is listening locally,SYSTEM_INFO,tier1,typed
+How many logical processors do I have?,SYSTEM_INFO,tier1,typed
+Give me a quick system status report,SYSTEM_INFO,tier1,typed
+Am I running low on local storage right now?,SYSTEM_INFO,tier1,typed
+Check current RAM pressure on my PC,SYSTEM_INFO,tier1,typed
+What is the local clock right now in 24-hour format?,SYSTEM_INFO,tier1,typed
+See how many megabytes the virtual environment uses,SYSTEM_INFO,tier1,typed
+Verify whether my camera or mic is accessible,SYSTEM_INFO,tier1,typed
+Check my Wi-Fi SSID name,SYSTEM_INFO,tier1,typed
+Tell me the power plan currently active in Windows,SYSTEM_INFO,tier1,typed
+How many GB are used vs free on the system drive?,SYSTEM_INFO,tier1,typed
+Check if my CPU load is above 80 percent,SYSTEM_INFO,tier1,typed
+What architecture is my OS running (64-bit or ARM)?,SYSTEM_INFO,tier1,typed
+Show my current GPU memory utilization,SYSTEM_INFO,tier1,typed
+Check if any USB storage drives are plugged in,SYSTEM_INFO,tier1,typed
+Tell me the exact current timestamp,SYSTEM_INFO,tier1,typed
+How much disk space can I free inside the cache directory?,SYSTEM_INFO,tier1,typed
+Check whether Ollama service is alive locally,SYSTEM_INFO,tier1,typed
+Show available physical RAM in gigabytes,SYSTEM_INFO,tier1,typed
+What is my current network link speed?,SYSTEM_INFO,tier1,typed
+Check if Windows Dark Mode is enabled,SYSTEM_INFO,tier1,typed
+Tell me if my laptop is running hot or under heavy CPU load,SYSTEM_INFO,tier1,typed
+Give me a free disk space check before downloading files,SYSTEM_INFO,tier1,typed
+hey jude how much free space is left on my drive,SYSTEM_INFO,tier1,voice
+jude check my battery percentage,SYSTEM_INFO,tier1,voice
+what is my cpu and ram usage right now,SYSTEM_INFO,tier1,voice
+uh how much storage is free across my drives,SYSTEM_INFO,tier1,voice
+hey jude what time is it,SYSTEM_INFO,tier1,voice
+what is today date,SYSTEM_INFO,tier1,voice
+jude is my laptop charging right now,SYSTEM_INFO,tier1,voice
+how much disk space is this project folder using,SYSTEM_INFO,tier1,voice
+hey jude am i connected to wifi,SYSTEM_INFO,tier1,voice
+what is my local ip address,SYSTEM_INFO,tier1,voice
+jude check how much ram is currently free,SYSTEM_INFO,tier1,voice
+uh how long has my computer been on,SYSTEM_INFO,tier1,voice
+hey jude is ollama running right now,SYSTEM_INFO,tier1,voice
+check if my microphone is detected,SYSTEM_INFO,tier1,voice
+jude tell me what gpu is on this laptop,SYSTEM_INFO,tier1,voice
+how full is my workspace partition,SYSTEM_INFO,tier1,voice
+hey jude what day of the week is today,SYSTEM_INFO,tier1,voice
+check how much battery time is left,SYSTEM_INFO,tier1,voice
+jude give me a quick system status report,SYSTEM_INFO,tier1,voice
+uh how many cpu cores do i have,SYSTEM_INFO,tier1,voice
+hey jude am i running low on disk space,SYSTEM_INFO,tier1,voice
+check if my internet is online,SYSTEM_INFO,tier1,voice
+jude what is my windows version,SYSTEM_INFO,tier1,voice
+how much space is the ollama models folder taking,SYSTEM_INFO,tier1,voice
+hey jude tell me the top memory eating apps right now,SYSTEM_INFO,tier1,voice
+is bluetooth turned on,SYSTEM_INFO,tier1,voice
+jude check my screen resolution,SYSTEM_INFO,tier1,voice
+uh what is my computer hostname,SYSTEM_INFO,tier1,voice
+hey jude check if any usb drive is plugged in,SYSTEM_INFO,tier1,voice
+how much vram is available on my gpu,SYSTEM_INFO,tier1,voice
+jude what timezone is my system set to,SYSTEM_INFO,tier1,voice
+check if port eleven four three four is listening,SYSTEM_INFO,tier1,voice
+hey jude how many gigabytes of ram do i have total,SYSTEM_INFO,tier1,voice
+what wifi network am i connected to,SYSTEM_INFO,tier1,voice
+jude check my cpu load right now,SYSTEM_INFO,tier1,voice
+uh how much space is in the cache folder,SYSTEM_INFO,tier1,voice
+hey jude what is my active speaker output device,SYSTEM_INFO,tier1,voice
+is my laptop running on battery or plugged in,SYSTEM_INFO,tier1,voice
+jude check my python version,SYSTEM_INFO,tier1,voice
+how many processes are running right now,SYSTEM_INFO,tier1,voice
+hey jude tell me how many gigs are free on drive c,SYSTEM_INFO,tier1,voice
+check what power plan windows is using,SYSTEM_INFO,tier1,voice
+jude give me a hardware summary of this pc,SYSTEM_INFO,tier1,voice
+uh are there any background python tasks running,SYSTEM_INFO,tier1,voice
+hey jude check my network link speed,SYSTEM_INFO,tier1,voice
+what is the exact time right now,SYSTEM_INFO,tier1,voice
+jude check my gpu memory usage,SYSTEM_INFO,tier1,voice
+how many megabytes does the virtual environment use,SYSTEM_INFO,tier1,voice
+hey jude is my graphics driver active,SYSTEM_INFO,tier1,voice
+jude verify if my microphone input works,SYSTEM_INFO,tier1,voice
+Rewrite the selected paragraph in Word to sound more formal,EDIT_DOCUMENT,tier2,typed
+Fix all grammar and spelling mistakes in my open Word document,EDIT_DOCUMENT,tier2,typed
+Shorten the highlighted section in Word to three sentences,EDIT_DOCUMENT,tier2,typed
+Make this selected text inside Word clearer and more concise,EDIT_DOCUMENT,tier2,typed
+Polish the introduction paragraph I have open in Microsoft Word,EDIT_DOCUMENT,tier2,typed
+Expand the bullet points selected in my Word doc into a full paragraph,EDIT_DOCUMENT,tier2,typed
+Change the tone of the highlighted Word text to academic style,EDIT_DOCUMENT,tier2,typed
+Summarize the selected Word document section into 5 bullet points,EDIT_DOCUMENT,tier2,typed
+Tighten up this intro paragraph I selected in Word,EDIT_DOCUMENT,tier2,typed
+Proofread the active Word document and fix punctuation errors,EDIT_DOCUMENT,tier2,typed
+Convert the selected paragraph in my Word file into bullet points,EDIT_DOCUMENT,tier2,typed
+Draft a stronger conclusion at the end of my open Word document,EDIT_DOCUMENT,tier2,typed
+Paraphrase the highlighted sentence in Word without changing its meaning,EDIT_DOCUMENT,tier2,typed
+Make the selected email draft in Word sound polite and professional,EDIT_DOCUMENT,tier2,typed
+Fix passive voice issues in the highlighted Word text,EDIT_DOCUMENT,tier2,typed
+Turn these rough notes in my open Word document into clean prose,EDIT_DOCUMENT,tier2,typed
+Format the selected list in Word into a structured summary,EDIT_DOCUMENT,tier2,typed
+Improve flow and transitions in the paragraph I selected in Word,EDIT_DOCUMENT,tier2,typed
+Add a brief executive summary section to my open Word report,EDIT_DOCUMENT,tier2,typed
+Replace repetitive words in the highlighted Word paragraph,EDIT_DOCUMENT,tier2,typed
+Simplify the technical wording in this selected Word section,EDIT_DOCUMENT,tier2,typed
+Edit the selected abstract in Word to stay under 200 words,EDIT_DOCUMENT,tier2,typed
+Correct tense inconsistencies in my open Word document,EDIT_DOCUMENT,tier2,typed
+Make the highlighted methodology paragraph in Word more detailed,EDIT_DOCUMENT,tier2,typed
+Rewrite the selected conclusion in my Word doc with stronger impact,EDIT_DOCUMENT,tier2,typed
+Clean up the formatting and phrasing of this highlighted Word block,EDIT_DOCUMENT,tier2,typed
+Translate the selected Word paragraph into simpler everyday English,EDIT_DOCUMENT,tier2,typed
+Turn the highlighted Word text into a formal problem statement,EDIT_DOCUMENT,tier2,typed
+Suggest a better heading and opening line for my open Word document,EDIT_DOCUMENT,tier2,typed
+Edit this Word selection to remove filler words,EDIT_DOCUMENT,tier2,typed
+Soften the tone of the paragraph I highlighted in Word,EDIT_DOCUMENT,tier2,typed
+Make the selected Word bio sound confident for a resume,EDIT_DOCUMENT,tier2,typed
+Reorganize the highlighted points in Word in logical order,EDIT_DOCUMENT,tier2,typed
+Fix subject-verb agreement in the active Word document,EDIT_DOCUMENT,tier2,typed
+Rewrite the highlighted text in my Word report using active voice,EDIT_DOCUMENT,tier2,typed
+Condense this two-paragraph Word selection into one crisp paragraph,EDIT_DOCUMENT,tier2,typed
+Add two supporting sentences to the selected paragraph in Word,EDIT_DOCUMENT,tier2,typed
+Polish the acknowledgements section open in Microsoft Word,EDIT_DOCUMENT,tier2,typed
+Check my open Word essay for awkward phrasing and rewrite it,EDIT_DOCUMENT,tier2,typed
+Make the highlighted project description in Word match IEEE style,EDIT_DOCUMENT,tier2,typed
+Reframe the selected paragraph in Word from first-person to third-person,EDIT_DOCUMENT,tier2,typed
+Correct spelling and capitalization in the highlighted Word text,EDIT_DOCUMENT,tier2,typed
+Edit the open Word cover letter to emphasize Python and AI skills,EDIT_DOCUMENT,tier2,typed
+Smooth out the transition between these two highlighted paragraphs in Word,EDIT_DOCUMENT,tier2,typed
+Rewrite the selected Word paragraph for a non-technical audience,EDIT_DOCUMENT,tier2,typed
+Turn my rough draft in the open Word window into a polished memo,EDIT_DOCUMENT,tier2,typed
+Fix run-on sentences in the highlighted text inside Word,EDIT_DOCUMENT,tier2,typed
+Make this selected Word statement sound more persuasive,EDIT_DOCUMENT,tier2,typed
+Shorten the open Word abstract without losing key metrics,EDIT_DOCUMENT,tier2,typed
+Add clear topic sentences to the selected paragraphs in Word,EDIT_DOCUMENT,tier2,typed
+Clean up the grammar in the paragraph I just highlighted,EDIT_DOCUMENT,tier2,typed
+Rewrite this highlighted section in Word to be 30 percent shorter,EDIT_DOCUMENT,tier2,typed
+Fix the phrasing of the selected bullet list in my Word doc,EDIT_DOCUMENT,tier2,typed
+Make the open Word meeting minutes cleaner and more actionable,EDIT_DOCUMENT,tier2,typed
+Improve clarity in the highlighted text of my lab report in Word,EDIT_DOCUMENT,tier2,typed
+Reword the selected sentence in Word so it doesn't repeat 'system',EDIT_DOCUMENT,tier2,typed
+Tighten the wording of the active Word document's summary,EDIT_DOCUMENT,tier2,typed
+Polish the selected text in Word before I export it to PDF,EDIT_DOCUMENT,tier2,typed
+Edit the highlighted proposal section in Word for clarity,EDIT_DOCUMENT,tier2,typed
+Convert this highlighted Word paragraph into numbered steps,EDIT_DOCUMENT,tier2,typed
+Fix typos in the currently open Word document,EDIT_DOCUMENT,tier2,typed
+Rewrite the selected Word paragraph to match an academic tone,EDIT_DOCUMENT,tier2,typed
+Make the highlighted Word text punchier for a presentation script,EDIT_DOCUMENT,tier2,typed
+Clean up the wording in the Word document I have open right now,EDIT_DOCUMENT,tier2,typed
+Condense the selected Word notes into a clean two-sentence recap,EDIT_DOCUMENT,tier2,typed
+Fix comma splices in the highlighted Word passage,EDIT_DOCUMENT,tier2,typed
+Update the selected Word paragraph to sound less casual,EDIT_DOCUMENT,tier2,typed
+Help me rephrase this paragraph currently highlighted in Word,EDIT_DOCUMENT,tier2,typed
+Polish the literature review paragraph selected in my Word doc,EDIT_DOCUMENT,tier2,typed
+Edit the selected text in Word and show me the diff before applying,EDIT_DOCUMENT,tier2,typed
+hey jude rewrite the selected paragraph in word to sound formal,EDIT_DOCUMENT,tier2,voice
+jude fix grammar mistakes in my open word document,EDIT_DOCUMENT,tier2,voice
+can you shorten the highlighted section in word to three sentences,EDIT_DOCUMENT,tier2,voice
+uh tighten up this intro paragraph i selected in word,EDIT_DOCUMENT,tier2,voice
+hey jude polish the highlighted text in microsoft word,EDIT_DOCUMENT,tier2,voice
+expand these bullet points selected in word into a paragraph,EDIT_DOCUMENT,tier2,voice
+jude make this selected word text sound more professional,EDIT_DOCUMENT,tier2,voice
+proofread the paragraph i highlighted in word,EDIT_DOCUMENT,tier2,voice
+hey jude paraphrase the highlighted sentence in word,EDIT_DOCUMENT,tier2,voice
+turn the rough notes in my open word doc into clean prose,EDIT_DOCUMENT,tier2,voice
+jude convert the selected word paragraph into bullet points,EDIT_DOCUMENT,tier2,voice
+uh simplify the technical wording in this highlighted word text,EDIT_DOCUMENT,tier2,voice
+hey jude edit the selected abstract in word under two hundred words,EDIT_DOCUMENT,tier2,voice
+fix passive voice in the highlighted word paragraph,EDIT_DOCUMENT,tier2,voice
+jude rewrite the selected conclusion in my word document,EDIT_DOCUMENT,tier2,voice
+improve flow in the paragraph i just selected in word,EDIT_DOCUMENT,tier2,voice
+hey jude replace repetitive words in the highlighted word block,EDIT_DOCUMENT,tier2,voice
+make this highlighted word bio sound confident,EDIT_DOCUMENT,tier2,voice
+jude fix spelling and punctuation in my open word file,EDIT_DOCUMENT,tier2,voice
+uh rewrite the selected word text using active voice,EDIT_DOCUMENT,tier2,voice
+hey jude condense these two highlighted paragraphs in word into one,EDIT_DOCUMENT,tier2,voice
+clean up the grammar in the paragraph i highlighted,EDIT_DOCUMENT,tier2,voice
+jude change the highlighted word selection from first person to third person,EDIT_DOCUMENT,tier2,voice
+edit my open word cover letter to highlight python skills,EDIT_DOCUMENT,tier2,voice
+hey jude rewrite this selected word paragraph for non technical readers,EDIT_DOCUMENT,tier2,voice
+fix run on sentences in the highlighted text in word,EDIT_DOCUMENT,tier2,voice
+jude shorten the open word abstract without losing metrics,EDIT_DOCUMENT,tier2,voice
+uh make the highlighted methodology paragraph in word clearer,EDIT_DOCUMENT,tier2,voice
+hey jude turn this highlighted word paragraph into numbered steps,EDIT_DOCUMENT,tier2,voice
+polish my open word lab report before i save it,EDIT_DOCUMENT,tier2,voice
+jude soften the tone of the paragraph i selected in word,EDIT_DOCUMENT,tier2,voice
+correct tense errors in my open word document,EDIT_DOCUMENT,tier2,voice
+hey jude make the open word meeting minutes cleaner,EDIT_DOCUMENT,tier2,voice
+rephrase this sentence i highlighted in microsoft word,EDIT_DOCUMENT,tier2,voice
+jude fix the wording of the selected bullet list in word,EDIT_DOCUMENT,tier2,voice
+uh add a short summary paragraph to my open word document,EDIT_DOCUMENT,tier2,voice
+hey jude make this selected word statement more persuasive,EDIT_DOCUMENT,tier2,voice
+polish the acknowledgements section open in word,EDIT_DOCUMENT,tier2,voice
+jude rewrite the highlighted proposal section in word,EDIT_DOCUMENT,tier2,voice
+remove filler words from the selected text in word,EDIT_DOCUMENT,tier2,voice
+hey jude fix typos in the currently open word doc,EDIT_DOCUMENT,tier2,voice
+make the selected word text thirty percent shorter,EDIT_DOCUMENT,tier2,voice
+jude reorganize the highlighted points in word cleanly,EDIT_DOCUMENT,tier2,voice
+uh help me reword this paragraph highlighted in word,EDIT_DOCUMENT,tier2,voice
+hey jude edit the selected literature review text in word,EDIT_DOCUMENT,tier2,voice
+clean up the wording in my open word file and ask before saving,EDIT_DOCUMENT,tier2,voice
+jude check my open word essay for awkward sentences,EDIT_DOCUMENT,tier2,voice
+please turn the highlighted word text into a formal problem statement,EDIT_DOCUMENT,tier2,voice
+hey jude make this highlighted word paragraph punchier,EDIT_DOCUMENT,tier2,voice
+jude polish the highlighted section in word and preview the change,EDIT_DOCUMENT,tier2,voice
+Explain the error message currently on my screen,EXPLAIN_SCREEN,tier2,typed
+What does this Python traceback in my terminal mean?,EXPLAIN_SCREEN,tier2,typed
+Read my screen and tell me why this build failed,EXPLAIN_SCREEN,tier2,typed
+What broke on my monitor just now?,EXPLAIN_SCREEN,tier2,typed
+Explain the red popup dialog showing on my screen,EXPLAIN_SCREEN,tier2,typed
+Look at the active window and summarize what this warning says,EXPLAIN_SCREEN,tier2,typed
+Why is VS Code highlighting this line on my screen?,EXPLAIN_SCREEN,tier2,typed
+Explain the crash log visible in my PowerShell window,EXPLAIN_SCREEN,tier2,typed
+Read the error dialog in front of me and tell me how to fix it,EXPLAIN_SCREEN,tier2,typed
+What does this Windows blue modal error on my screen mean?,EXPLAIN_SCREEN,tier2,typed
+Inspect my screen and explain this compiler error,EXPLAIN_SCREEN,tier2,typed
+Summarize the log output currently visible in my terminal,EXPLAIN_SCREEN,tier2,typed
+Why did pip fail in the terminal window on my screen?,EXPLAIN_SCREEN,tier2,typed
+Read the exception message showing on my monitor,EXPLAIN_SCREEN,tier2,typed
+What is this permission denied message on my screen telling me?,EXPLAIN_SCREEN,tier2,typed
+Look at the code visible on my screen and spot the bug,EXPLAIN_SCREEN,tier2,typed
+Explain this git merge conflict shown in my editor window,EXPLAIN_SCREEN,tier2,typed
+What does this CUDA out of memory warning on screen mean?,EXPLAIN_SCREEN,tier2,typed
+Read the active browser tab text on my screen and explain this error,EXPLAIN_SCREEN,tier2,typed
+Why is my script throwing KeyError in the open console?,EXPLAIN_SCREEN,tier2,typed
+Explain the stack trace currently open in my terminal,EXPLAIN_SCREEN,tier2,typed
+Tell me what this Windows Defender notification on screen is asking,EXPLAIN_SCREEN,tier2,typed
+Look at the JSON error shown on my screen and explain what's wrong,EXPLAIN_SCREEN,tier2,typed
+What does this TypeError on my monitor mean in plain English?,EXPLAIN_SCREEN,tier2,typed
+Read the dialog box on my screen—is it safe to click Yes?,EXPLAIN_SCREEN,tier2,typed
+Explain why Docker failed in the terminal on my screen,EXPLAIN_SCREEN,tier2,typed
+Look at the SQL error currently visible in my active window,EXPLAIN_SCREEN,tier2,typed
+Summarize the warning banner showing at the top of my screen,EXPLAIN_SCREEN,tier2,typed
+What does this exit code 1 in PowerShell on my screen indicate?,EXPLAIN_SCREEN,tier2,typed
+Read the error in my IDE right now and explain the root cause,EXPLAIN_SCREEN,tier2,typed
+Why is PySide6 throwing that attribute error on my screen?,EXPLAIN_SCREEN,tier2,typed
+Explain the HTTP 403 error currently displayed on my monitor,EXPLAIN_SCREEN,tier2,typed
+Look at the table or chart on my screen and explain what it shows,EXPLAIN_SCREEN,tier2,typed
+What does this 'Access is denied' line in my terminal mean?,EXPLAIN_SCREEN,tier2,typed
+Read the visible compiler output and point out which line failed,EXPLAIN_SCREEN,tier2,typed
+Explain the syntax error highlighted on my screen right now,EXPLAIN_SCREEN,tier2,typed
+What is this Ollama server log error on my screen saying?,EXPLAIN_SCREEN,tier2,typed
+Inspect the currently open window and explain the prompt to me,EXPLAIN_SCREEN,tier2,typed
+Why is my Jupyter cell failing with that error on screen?,EXPLAIN_SCREEN,tier2,typed
+Read the pop-up alert on my monitor and translate it simply,EXPLAIN_SCREEN,tier2,typed
+Look at the failing test output on my screen and summarize why it failed,EXPLAIN_SCREEN,tier2,typed
+What does this 'ModuleNotFoundError' on my screen mean?,EXPLAIN_SCREEN,tier2,typed
+Explain the Git error message visible in my PowerShell window,EXPLAIN_SCREEN,tier2,typed
+Look at the active window—what is causing this infinite loop warning?,EXPLAIN_SCREEN,tier2,typed
+Read the crash report open on my screen and give me the takeaway,EXPLAIN_SCREEN,tier2,typed
+Why does my screen show 'ConnectionRefusedError' on port 11434?,EXPLAIN_SCREEN,tier2,typed
+Explain the deprecation warning printed in my terminal right now,EXPLAIN_SCREEN,tier2,typed
+Check what is currently displayed on my screen and explain the issue,EXPLAIN_SCREEN,tier2,typed
+What does this Windows Installer error dialog on my monitor mean?,EXPLAIN_SCREEN,tier2,typed
+Look at my screen and help me understand this regex error,EXPLAIN_SCREEN,tier2,typed
+Explain the highlighted terminal failure in simple terms,EXPLAIN_SCREEN,tier2,typed
+Read the visible stack trace on my monitor and tell me where it crashed,EXPLAIN_SCREEN,tier2,typed
+What is that popup window on my screen warning me about?,EXPLAIN_SCREEN,tier2,typed
+Inspect the error shown in my active window and explain step by step,EXPLAIN_SCREEN,tier2,typed
+Why did my Colab or Python cell print that traceback on screen?,EXPLAIN_SCREEN,tier2,typed
+Look at the active terminal window and tell me what went wrong,EXPLAIN_SCREEN,tier2,typed
+Explain the red squiggly error currently shown in VS Code,EXPLAIN_SCREEN,tier2,typed
+Read the error text on my screen and tell me which file caused it,EXPLAIN_SCREEN,tier2,typed
+What does the status code shown on my screen right now mean?,EXPLAIN_SCREEN,tier2,typed
+Summarize the error log currently open in front of me,EXPLAIN_SCREEN,tier2,typed
+Look at the code snippet visible on my screen and explain what it does,EXPLAIN_SCREEN,tier2,typed
+Why is Windows showing this firewall prompt on my screen?,EXPLAIN_SCREEN,tier2,typed
+Explain the lint warning currently visible in my IDE,EXPLAIN_SCREEN,tier2,typed
+Read the output on my monitor and tell me if the command succeeded,EXPLAIN_SCREEN,tier2,typed
+What is causing the exception currently visible on my screen?,EXPLAIN_SCREEN,tier2,typed
+Inspect the current screen error and tell me what dependency is missing,EXPLAIN_SCREEN,tier2,typed
+Read this ugly error box on my screen and break it down for me,EXPLAIN_SCREEN,tier2,typed
+What does that error line at the bottom of my terminal mean?,EXPLAIN_SCREEN,tier2,typed
+Look at the active app on screen and explain this validation message,EXPLAIN_SCREEN,tier2,typed
+Tell me what went wrong in the window currently open on my display,EXPLAIN_SCREEN,tier2,typed
+hey jude explain the error message on my screen,EXPLAIN_SCREEN,tier2,voice
+jude what does this python traceback in my terminal mean,EXPLAIN_SCREEN,tier2,voice
+jude read my screen and tell me why this build failed,EXPLAIN_SCREEN,tier2,voice
+uh what broke on my monitor just now,EXPLAIN_SCREEN,tier2,voice
+hey jude explain the popup dialog showing on my screen,EXPLAIN_SCREEN,tier2,voice
+look at my active window and tell me what this warning means,EXPLAIN_SCREEN,tier2,voice
+jude why is vs code underlining this line on my screen,EXPLAIN_SCREEN,tier2,voice
+explain the crash log visible in powershell right now,EXPLAIN_SCREEN,tier2,voice
+hey jude read the error box in front of me and explain it,EXPLAIN_SCREEN,tier2,voice
+what does this access denied error on my screen mean,EXPLAIN_SCREEN,tier2,voice
+jude inspect my screen and explain this compiler error,EXPLAIN_SCREEN,tier2,voice
+uh why did pip fail in the terminal on my screen,EXPLAIN_SCREEN,tier2,voice
+hey jude read the exception showing on my monitor,EXPLAIN_SCREEN,tier2,voice
+look at the code on my screen and spot the bug,EXPLAIN_SCREEN,tier2,voice
+jude explain this git merge conflict shown in my editor,EXPLAIN_SCREEN,tier2,voice
+what does this cuda out of memory error on screen mean,EXPLAIN_SCREEN,tier2,voice
+hey jude why is my script throwing key error in the console,EXPLAIN_SCREEN,tier2,voice
+explain the stack trace open in my terminal,EXPLAIN_SCREEN,tier2,voice
+jude is this popup dialog on my screen safe to click yes,EXPLAIN_SCREEN,tier2,voice
+uh what does exit code one in powershell on my screen mean,EXPLAIN_SCREEN,tier2,voice
+hey jude read the error in my ide and tell me the root cause,EXPLAIN_SCREEN,tier2,voice
+why is my screen showing connection refused on port eleven four three four,EXPLAIN_SCREEN,tier2,voice
+jude explain the module not found error on my screen,EXPLAIN_SCREEN,tier2,voice
+look at the failing test output on my screen and summarize it,EXPLAIN_SCREEN,tier2,voice
+hey jude what is this windows defender alert on my screen asking,EXPLAIN_SCREEN,tier2,voice
+read the visible terminal output and tell me which line failed,EXPLAIN_SCREEN,tier2,voice
+jude explain the syntax error highlighted on my screen,EXPLAIN_SCREEN,tier2,voice
+uh what is this ollama log error on my monitor saying,EXPLAIN_SCREEN,tier2,voice
+hey jude why is my jupyter cell crashing on screen right now,EXPLAIN_SCREEN,tier2,voice
+look at the sql error visible in my active window,EXPLAIN_SCREEN,tier2,voice
+jude explain the http four oh three error on my screen,EXPLAIN_SCREEN,tier2,voice
+read the crash report on my display and give me the summary,EXPLAIN_SCREEN,tier2,voice
+hey jude what does this type error on my monitor mean,EXPLAIN_SCREEN,tier2,voice
+explain the deprecation warning printed on my screen,EXPLAIN_SCREEN,tier2,voice
+jude look at my screen and explain this json error,EXPLAIN_SCREEN,tier2,voice
+uh check what is on my screen right now and explain the problem,EXPLAIN_SCREEN,tier2,voice
+hey jude what is that popup window warning me about,EXPLAIN_SCREEN,tier2,voice
+read the error text on my screen and tell me which file broke,EXPLAIN_SCREEN,tier2,voice
+jude explain the code currently visible on my screen,EXPLAIN_SCREEN,tier2,voice
+why is windows showing this firewall prompt on my screen,EXPLAIN_SCREEN,tier2,voice
+hey jude read the output on my monitor did it pass or fail,EXPLAIN_SCREEN,tier2,voice
+what is causing the exception currently visible on screen,EXPLAIN_SCREEN,tier2,voice
+jude inspect this screen error and tell me what package is missing,EXPLAIN_SCREEN,tier2,voice
+uh break down this ugly error box on my screen in plain english,EXPLAIN_SCREEN,tier2,voice
+hey jude what does that red line at the bottom of my terminal mean,EXPLAIN_SCREEN,tier2,voice
+look at the active app on screen and explain this warning,EXPLAIN_SCREEN,tier2,voice
+jude read my screen and tell me what went wrong here,EXPLAIN_SCREEN,tier2,voice
+why is pyside six throwing that error on my screen,EXPLAIN_SCREEN,tier2,voice
+hey jude explain the git error visible in powershell,EXPLAIN_SCREEN,tier2,voice
+jude summarize the log output showing on my monitor,EXPLAIN_SCREEN,tier2,voice
+Search the web for the latest Python 3.13 release notes,WEB_SEARCH,tier2,typed
+Look up today's weather in London online,WEB_SEARCH,tier2,typed
+Find recent benchmarks comparing DistilBERT and TinyBERT on the web,WEB_SEARCH,tier2,typed
+Search online for how PySide6 frameless transparent windows work,WEB_SEARCH,tier2,typed
+Check the current USD to EUR exchange rate online,WEB_SEARCH,tier2,typed
+Search DuckDuckGo for the latest Ollama version features,WEB_SEARCH,tier2,typed
+Look up official ONNX Runtime dynamic quantization documentation online,WEB_SEARCH,tier2,typed
+Find the latest news on Google Gemini models on the web,WEB_SEARCH,tier2,typed
+Search the web for best practices in Windows UI Automation with Python,WEB_SEARCH,tier2,typed
+Look up when the next Champions League football match is scheduled,WEB_SEARCH,tier2,typed
+Search online for current NVIDIA RTX 4060 retail prices,WEB_SEARCH,tier2,typed
+Find tutorials on PyInstaller --onedir CI/CD GitHub Actions online,WEB_SEARCH,tier2,typed
+Search the web for the difference between FTS5 and vector search,WEB_SEARCH,tier2,typed
+Look up today's top AI research headlines online,WEB_SEARCH,tier2,typed
+Search online for faster-whisper supported audio formats,WEB_SEARCH,tier2,typed
+Find out who won last night's basketball game on the web,WEB_SEARCH,tier2,typed
+Search the internet for trafilatura Python examples,WEB_SEARCH,tier2,typed
+Look up standard IEEE conference formatting guidelines online,WEB_SEARCH,tier2,typed
+Search the web for how temperature scaling calibration works in PyTorch,WEB_SEARCH,tier2,typed
+Check online whether Qwen2.5-1.5B supports JSON mode in Ollama,WEB_SEARCH,tier2,typed
+Search the web for lightweight wake word libraries for Windows Python,WEB_SEARCH,tier2,typed
+Look up current gold prices per ounce online,WEB_SEARCH,tier2,typed
+Find recent papers on two-tier edge-cloud LLM routing on Google Scholar or the web,WEB_SEARCH,tier2,typed
+Search online for how to register a global hotkey in Windows 11,WEB_SEARCH,tier2,typed
+Look up the latest stable version of scikit-learn on PyPI online,WEB_SEARCH,tier2,typed
+Search the web for Windows 11 24H2 known issues,WEB_SEARCH,tier2,typed
+Check online what time sunset is today in New York,WEB_SEARCH,tier2,typed
+Search the web for Silero VAD sample rate requirements,WEB_SEARCH,tier2,typed
+Look up reviews of mechanical keyboards for coding online,WEB_SEARCH,tier2,typed
+Search online for current Hugging Face DistilBERT download stats,WEB_SEARCH,tier2,typed
+Find out the current weather forecast for Tokyo this weekend,WEB_SEARCH,tier2,typed
+Search the web for IEEE conference paper template Word download,WEB_SEARCH,tier2,typed
+Look up the latest CVE security updates for OpenSSL online,WEB_SEARCH,tier2,typed
+Search online for free DuckDuckGo search query limits in Python,WEB_SEARCH,tier2,typed
+Check the web for current 1TB NVMe SSD prices,WEB_SEARCH,tier2,typed
+Search online for how Windows COM automation edits Word documents,WEB_SEARCH,tier2,typed
+Look up the release date of PySide 6.12 on the web,WEB_SEARCH,tier2,typed
+Search the internet for best INT8 quantization practices for BERT,WEB_SEARCH,tier2,typed
+Find online if GitHub Actions windows-latest includes Python 3.13,WEB_SEARCH,tier2,typed
+Search the web for recent breakthroughs in small language models 2026,WEB_SEARCH,tier2,typed
+Look up high-speed rail timings from London to Paris online,WEB_SEARCH,tier2,typed
+Search the web for how to use ddgs library in Python,WEB_SEARCH,tier2,typed
+Check online for current stock price of NVIDIA,WEB_SEARCH,tier2,typed
+Search the web for best microphone noise suppression tools for Windows,WEB_SEARCH,tier2,typed
+Look up documentation for win32com Word Selection object online,WEB_SEARCH,tier2,typed
+Search online for top open-source TTS engines under 100MB,WEB_SEARCH,tier2,typed
+Find the latest Formula 1 standings on the web,WEB_SEARCH,tier2,typed
+Search the web for Google Colab T4 vs L4 GPU specifications,WEB_SEARCH,tier2,typed
+Look up current crude oil prices online,WEB_SEARCH,tier2,typed
+Search online for examples of confusion matrix formatting in matplotlib,WEB_SEARCH,tier2,typed
+Check the web for the latest Windows Terminal shortcuts,WEB_SEARCH,tier2,typed
+Search online for how to prevent PyInstaller from using AppData Temp,WEB_SEARCH,tier2,typed
+Look up current air quality index AQI in Seattle,WEB_SEARCH,tier2,typed
+Search the web for DistilBERT parameter count and layer architecture,WEB_SEARCH,tier2,typed
+Find out online when the next solar eclipse happens,WEB_SEARCH,tier2,typed
+Search the web for top Python desktop widget UI inspiration,WEB_SEARCH,tier2,typed
+Look up official Ollama Modelfile parameter reference online,WEB_SEARCH,tier2,typed
+Search online for remote AI engineering job openings,WEB_SEARCH,tier2,typed
+Check the web for how to fix Windows 11 microphone permission issues,WEB_SEARCH,tier2,typed
+Search online for fast local embeddings under 100MB,WEB_SEARCH,tier2,typed
+Look up current flight prices from New York to London on the web,WEB_SEARCH,tier2,typed
+Search the web for best practices in OOD detection for text classifiers,WEB_SEARCH,tier2,typed
+Find online what new features came in pip 26,WEB_SEARCH,tier2,typed
+Search the web for how pyttsx3 works with Windows SAPI5 voices,WEB_SEARCH,tier2,typed
+Look up the latest Ubuntu LTS version release date online,WEB_SEARCH,tier2,typed
+Search online for how to run local LLMs on 4GB VRAM GPUs,WEB_SEARCH,tier2,typed
+Check the web for Python 3.13 wheel compatibility with onnxruntime,WEB_SEARCH,tier2,typed
+Search online for top 5 local-first desktop AI assistants in 2026,WEB_SEARCH,tier2,typed
+Look up the weather radar for Chicago on the web,WEB_SEARCH,tier2,typed
+Search the web for recent developments in Edge AI quantization,WEB_SEARCH,tier2,typed
+hey jude search the web for today weather in london,WEB_SEARCH,tier2,voice
+jude look up the current dollar to euro rate online,WEB_SEARCH,tier2,voice
+search online for python three point thirteen release notes,WEB_SEARCH,tier2,voice
+uh check the web for google colab t4 gpu specs,WEB_SEARCH,tier2,voice
+hey jude find the latest ollama version features online,WEB_SEARCH,tier2,voice
+look up who won last night basketball game on the web,WEB_SEARCH,tier2,voice
+jude search duckduckgo for pyside six frameless window examples,WEB_SEARCH,tier2,voice
+search the web for current nvidia stock price,WEB_SEARCH,tier2,voice
+hey jude check online what time sunset is in new york today,WEB_SEARCH,tier2,voice
+look up the latest news on google gemini online,WEB_SEARCH,tier2,voice
+jude search online for onnx runtime dynamic quantization docs,WEB_SEARCH,tier2,voice
+uh find current crude oil prices on the web,WEB_SEARCH,tier2,voice
+hey jude search the web for best int8 quantization practices,WEB_SEARCH,tier2,voice
+can you look up train timings from london to paris online,WEB_SEARCH,tier2,voice
+jude search online for silero vad sample rate requirements,WEB_SEARCH,tier2,voice
+check the web for current air quality index in seattle,WEB_SEARCH,tier2,voice
+hey jude search online for fast local embeddings under one hundred megabytes,WEB_SEARCH,tier2,voice
+look up reviews for ergonomic mechanical keyboards online,WEB_SEARCH,tier2,voice
+jude search the web for temperature scaling calibration in pytorch,WEB_SEARCH,tier2,voice
+uh check online if github actions windows latest has python three thirteen,WEB_SEARCH,tier2,voice
+hey jude find recent benchmarks comparing distilbert and tinybert,WEB_SEARCH,tier2,voice
+search the web for how windows com automation edits word docs,WEB_SEARCH,tier2,voice
+jude look up today top ai headlines online,WEB_SEARCH,tier2,voice
+search online for current gold prices per ounce,WEB_SEARCH,tier2,voice
+hey jude check the web for next solar eclipse date,WEB_SEARCH,tier2,voice
+look up ieee paper template word download online,WEB_SEARCH,tier2,voice
+jude search online for latest formula one standings,WEB_SEARCH,tier2,voice
+uh find out on the web when next semester python releases ship,WEB_SEARCH,tier2,voice
+hey jude search the internet for trafilatura python examples,WEB_SEARCH,tier2,voice
+look up how to register a global hotkey in windows eleven online,WEB_SEARCH,tier2,voice
+jude search the web for tokyo weekend weather forecast,WEB_SEARCH,tier2,voice
+check online whether qwen two point five supports json mode,WEB_SEARCH,tier2,voice
+hey jude search online for one tb nvme ssd prices,WEB_SEARCH,tier2,voice
+look up the latest stable version of scikit learn on the web,WEB_SEARCH,tier2,voice
+jude search the web for distilbert parameter count,WEB_SEARCH,tier2,voice
+uh check online for remote ai engineering internships,WEB_SEARCH,tier2,voice
+hey jude search the web for how pyttsx three uses windows voices,WEB_SEARCH,tier2,voice
+look up current flight prices from new york to london online,WEB_SEARCH,tier2,voice
+jude search online for best ood detection methods for text classifiers,WEB_SEARCH,tier2,voice
+check the web for windows eleven known update issues,WEB_SEARCH,tier2,voice
+hey jude search online for lightweight wake word python libraries,WEB_SEARCH,tier2,voice
+look up official ollama modelfile parameters on the web,WEB_SEARCH,tier2,voice
+jude search the web for rtx forty sixty retail price,WEB_SEARCH,tier2,voice
+uh find out online how pyinstaller onedir avoids temp folders,WEB_SEARCH,tier2,voice
+hey jude search online for faster whisper supported formats,WEB_SEARCH,tier2,voice
+look up the latest ubuntu lts release date on the web,WEB_SEARCH,tier2,voice
+jude search the internet for local llm tips on four gb vram,WEB_SEARCH,tier2,voice
+check the web for recent small language model benchmarks,WEB_SEARCH,tier2,voice
+hey jude search online for windows terminal keyboard shortcuts,WEB_SEARCH,tier2,voice
+jude look up what new features arrived in pip twenty six,WEB_SEARCH,tier2,voice
+"Hi J.U.D.E., who are you and what can you help me with?",GENERAL_CHAT,tier2,typed
+"Explain the difference between precision, recall, and F1-score",GENERAL_CHAT,tier2,typed
+Help me prepare a 2-minute explanation of my two-tier AI architecture for my presentation,GENERAL_CHAT,tier2,typed
+What is overfitting and how does dropout prevent it in neural networks?,GENERAL_CHAT,tier2,typed
+Write a short standalone Python function to validate an email with regex,GENERAL_CHAT,tier2,typed
+Compare TF-IDF + Logistic Regression with fine-tuned DistilBERT,GENERAL_CHAT,tier2,typed
+Explain how self-attention works in transformers in simple terms,GENERAL_CHAT,tier2,typed
+Brainstorm 5 creative project demo scenarios for J.U.D.E.,GENERAL_CHAT,tier2,typed
+Write a polite email from scratch asking my professor for a deadline extension,GENERAL_CHAT,tier2,typed
+What is temperature scaling and why does it improve confidence calibration?,GENERAL_CHAT,tier2,typed
+Explain INT8 dynamic quantization vs FP32 inference in plain English,GENERAL_CHAT,tier2,typed
+How does a confusion matrix help diagnose class imbalance?,GENERAL_CHAT,tier2,typed
+Give me a motivational quote to start my study session,GENERAL_CHAT,tier2,typed
+Write a quick SQL query to create a notes table with an FTS5 index,GENERAL_CHAT,tier2,typed
+Explain why routing simple tasks away from an LLM saves battery and RAM,GENERAL_CHAT,tier2,typed
+Help me draft a short blog post about building my first local AI assistant,GENERAL_CHAT,tier2,typed
+What is the difference between macro F1 and weighted F1?,GENERAL_CHAT,tier2,typed
+Explain how softmax converts logits into probabilities,GENERAL_CHAT,tier2,typed
+Give me 5 oral defense questions an examiner might ask about DistilBERT,GENERAL_CHAT,tier2,typed
+"Solve this step by step: if TP=45, FP=5, FN=10, what is the F1-score?",GENERAL_CHAT,tier2,typed
+Explain what an out-of-distribution input is in text classification,GENERAL_CHAT,tier2,typed
+Write a short thank-you note to my lab teammate,GENERAL_CHAT,tier2,typed
+What are the pros and cons of local-first AI compared to cloud APIs?,GENERAL_CHAT,tier2,typed
+Explain how SQLite stores data in a single portable file,GENERAL_CHAT,tier2,typed
+Compare CPU ONNX Runtime inference with PyTorch eager execution,GENERAL_CHAT,tier2,typed
+Help me outline a 5-slide presentation for my AI Lab project,GENERAL_CHAT,tier2,typed
+"Why do we split data into train, validation, and test sets?",GENERAL_CHAT,tier2,typed
+Explain what stratified splitting does and why it matters,GENERAL_CHAT,tier2,typed
+Draft a crisp GitHub commit message for adding an evaluation notebook,GENERAL_CHAT,tier2,typed
+Tell me a clean computer science joke,GENERAL_CHAT,tier2,typed
+How does cosine warmup help during transformer fine-tuning?,GENERAL_CHAT,tier2,typed
+Explain the difference between a discriminative classifier and a generative LLM,GENERAL_CHAT,tier2,typed
+Write a Python list comprehension that filters out empty strings,GENERAL_CHAT,tier2,typed
+What is Expected Calibration Error (ECE) in machine learning?,GENERAL_CHAT,tier2,typed
+Suggest 3 ways to reduce false positives in an intent router,GENERAL_CHAT,tier2,typed
+Explain what a virtual environment in Python actually isolates,GENERAL_CHAT,tier2,typed
+Help me summarize the concept of System 1 vs System 2 thinking,GENERAL_CHAT,tier2,typed
+Write a short bio for a developer profile as an AI undergrad,GENERAL_CHAT,tier2,typed
+Why does DistilBERT have 6 transformer layers instead of 12?,GENERAL_CHAT,tier2,typed
+Explain the role of a tokenizer and subword vocabulary like WordPiece,GENERAL_CHAT,tier2,typed
+What happens mathematically during cross-entropy loss?,GENERAL_CHAT,tier2,typed
+Give me a study checklist for my AI final exam,GENERAL_CHAT,tier2,typed
+Compare greedy decoding with temperature sampling in language models,GENERAL_CHAT,tier2,typed
+Explain what a daemon process is in an operating system,GENERAL_CHAT,tier2,typed
+Write a quick bash or PowerShell one-liner explanation of exit codes,GENERAL_CHAT,tier2,typed
+How do I explain why we chose regex slot filling over a BIO neural net?,GENERAL_CHAT,tier2,typed
+Draft a 3-sentence project abstract for J.U.D.E.,GENERAL_CHAT,tier2,typed
+What is the difference between latency and throughput?,GENERAL_CHAT,tier2,typed
+Explain why 1.5B parameter models are practical on modest laptops,GENERAL_CHAT,tier2,typed
+"Good morning J.U.D.E., ready to work on our project today?",GENERAL_CHAT,tier2,typed
+"Thank you, that makes complete sense!",GENERAL_CHAT,tier2,typed
+Explain how WordPiece handles rare or misspelled voice words,GENERAL_CHAT,tier2,typed
+What is the curse of dimensionality in TF-IDF n-grams?,GENERAL_CHAT,tier2,typed
+Write a simple Python decorator that measures function runtime in ms,GENERAL_CHAT,tier2,typed
+Explain why we never tune hyperparameters on the test split,GENERAL_CHAT,tier2,typed
+Suggest a clean naming convention for intent labels in a classifier,GENERAL_CHAT,tier2,typed
+What does gradient clipping or weight decay do during training?,GENERAL_CHAT,tier2,typed
+Draft a polite Slack message asking my teammate for his dataset rows,GENERAL_CHAT,tier2,typed
+Explain the difference between supervised fine-tuning and zero-shot prompting,GENERAL_CHAT,tier2,typed
+How can I justify using a 3-way confidence threshold in my lab report?,GENERAL_CHAT,tier2,typed
+Write a quick regex pattern to extract a Windows path from text,GENERAL_CHAT,tier2,typed
+Explain what quantization error means when shrinking weights to 8 bits,GENERAL_CHAT,tier2,typed
+Give me 3 strong closing sentences for my project demonstration,GENERAL_CHAT,tier2,typed
+What is the difference between JSON and CSV for storing structured logs?,GENERAL_CHAT,tier2,typed
+Explain why keeping caches inside the project folder improves portability,GENERAL_CHAT,tier2,typed
+Help me compare synchronous vs asynchronous UI workers in PySide6,GENERAL_CHAT,tier2,typed
+Write a short apology message for missing today's morning standup,GENERAL_CHAT,tier2,typed
+Explain what ROC-AUC measures when separating ID from OOD queries,GENERAL_CHAT,tier2,typed
+How does an inverted index speed up text lookup?,GENERAL_CHAT,tier2,typed
+Can you quiz me with one conceptual question about transformers?,GENERAL_CHAT,tier2,typed
+hey jude who are you and what can you do,GENERAL_CHAT,tier2,voice
+jude explain the difference between precision recall and f1 score,GENERAL_CHAT,tier2,voice
+help me practice a two minute presentation for my two tier architecture,GENERAL_CHAT,tier2,voice
+uh what is overfitting in neural networks,GENERAL_CHAT,tier2,voice
+hey jude compare tf idf logistic regression with distilbert,GENERAL_CHAT,tier2,voice
+explain how self attention works in simple words,GENERAL_CHAT,tier2,voice
+jude brainstorm five cool demo scenarios for my presentation,GENERAL_CHAT,tier2,voice
+draft a polite email from scratch asking my professor for an extension,GENERAL_CHAT,tier2,voice
+hey jude why does temperature scaling fix overconfident models,GENERAL_CHAT,tier2,voice
+explain int8 quantization versus fp32 in plain english,GENERAL_CHAT,tier2,voice
+jude what is the difference between macro f1 and weighted f1,GENERAL_CHAT,tier2,voice
+uh give me five questions an examiner could ask about distilbert,GENERAL_CHAT,tier2,voice
+hey jude explain what out of distribution input means,GENERAL_CHAT,tier2,voice
+what are the advantages of local ai over cloud apis,GENERAL_CHAT,tier2,voice
+jude help me outline a five slide deck for my ai lab project,GENERAL_CHAT,tier2,voice
+why do we split datasets into train validation and test sets,GENERAL_CHAT,tier2,voice
+hey jude explain what stratified splitting does,GENERAL_CHAT,tier2,voice
+tell me a funny programmer joke,GENERAL_CHAT,tier2,voice
+jude explain the difference between a classifier and a generative llm,GENERAL_CHAT,tier2,voice
+uh what is expected calibration error in machine learning,GENERAL_CHAT,tier2,voice
+hey jude explain system one versus system two thinking,GENERAL_CHAT,tier2,voice
+why does distilbert only have six layers instead of twelve,GENERAL_CHAT,tier2,voice
+jude explain how a subword tokenizer handles typos,GENERAL_CHAT,tier2,voice
+what happens mathematically in cross entropy loss,GENERAL_CHAT,tier2,voice
+hey jude compare greedy decoding with temperature sampling,GENERAL_CHAT,tier2,voice
+how should i explain skipping a bio neural net in my talk,GENERAL_CHAT,tier2,voice
+jude draft a short three sentence abstract for my project,GENERAL_CHAT,tier2,voice
+uh what is the difference between latency and throughput,GENERAL_CHAT,tier2,voice
+hey jude why is a one point five b model good for local laptops,GENERAL_CHAT,tier2,voice
+good morning jude ready to get started today,GENERAL_CHAT,tier2,voice
+thanks jude that explanation helped a lot,GENERAL_CHAT,tier2,voice
+hey jude explain why we never tune thresholds on the test set,GENERAL_CHAT,tier2,voice
+what does weight decay do during model training,GENERAL_CHAT,tier2,voice
+jude help me write a short thank you note for my teammate,GENERAL_CHAT,tier2,voice
+uh explain the difference between fine tuning and zero shot prompting,GENERAL_CHAT,tier2,voice
+hey jude how do i justify our three way confidence gate in my report,GENERAL_CHAT,tier2,voice
+explain what roc auc measures for ood detection,GENERAL_CHAT,tier2,voice
+jude give me three strong closing lines for my demo,GENERAL_CHAT,tier2,voice
+hey jude why does separating fast path from llm save battery,GENERAL_CHAT,tier2,voice
+what is a virtual environment in python actually isolating,GENERAL_CHAT,tier2,voice
+jude explain how softmax turns logits into probabilities,GENERAL_CHAT,tier2,voice
+uh give me a motivational quote before i start studying,GENERAL_CHAT,tier2,voice
+hey jude write a short post idea about building a local assistant,GENERAL_CHAT,tier2,voice
+how does an inverted index make text search fast,GENERAL_CHAT,tier2,voice
+jude compare cpu onnx runtime with pytorch eager mode,GENERAL_CHAT,tier2,voice
+hey jude quiz me on one concept about transformers,GENERAL_CHAT,tier2,voice
+explain why keeping a project self contained is useful,GENERAL_CHAT,tier2,voice
+jude what is a daemon process in windows,GENERAL_CHAT,tier2,voice
+uh suggest three ways to cut down false positives in a classifier,GENERAL_CHAT,tier2,voice
+hey jude help me understand quantization error in simple terms,GENERAL_CHAT,tier2,voice

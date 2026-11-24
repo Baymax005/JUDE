@@ -1,0 +1,13 @@
+PySide6
+onnxruntime
+tokenizers
+numpy
+requests
+ddgs
+beautifulsoup4
+trafilatura
+pywin32
+uiautomation
+Pillow
+pyttsx3
+sounddevice

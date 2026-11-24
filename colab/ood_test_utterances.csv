@@ -1,0 +1,31 @@
+text,category,notes
+uhh wait never mind,asr_noise,Aborted voice command / filler
+hey jude can you uhh,asr_noise,Incomplete cutoff mid-utterance
+testing one two three mic check,asr_noise,Microphone calibration check
+hmm actually forget it,asr_noise,User cancelled intent mid-speech
+wait no stop listening,asr_noise,Voice control cancellation
+hello hello is this thing on,asr_noise,Audio check without task
+blah blah random noise test,asr_noise,Nonsense / background speech
+sorry i was talking to someone else,asr_noise,False wake-word trigger
+uh huh yeah okay,asr_noise,Passive backchannel speech
+mumble static check one two,asr_noise,Garbled ASR fragment
+turn off the bedroom smart lights,unsupported_action,IoT smart home control
+order a large pepperoni pizza,unsupported_action,Food delivery / e-commerce
+format my external drive completely,unsupported_action,Destructive disk formatting
+play lo fi beats on spotify,unsupported_action,Streaming media playback
+send a chat message to alex,unsupported_action,Third-party messaging action
+book a flight to london next week,unsupported_action,Travel booking transaction
+delete the windows system32 folder,unsupported_action,Destructive OS system deletion
+restart my home wifi router,unsupported_action,Router hardware control
+set an alarm for 6 30 am,unsupported_action,Alarm / clock scheduling
+transfer five hundred dollars to sam,unsupported_action,Banking / financial transfer
+do that thing we talked about,ambiguous,Underspecified referent
+fix it,ambiguous,"No target, file, or screen context specified"
+handle my files,ambiguous,"Could mean open, compress, or organize"
+check that for me,ambiguous,"Could mean recall, web search, or screen"
+something went wrong,ambiguous,Unclear if screen error or chat
+open it or zip it i dont know,ambiguous,Contradictory multi-intent choice
+make it better somehow,ambiguous,No target document or context
+save this and email it to everyone,ambiguous,Compound + unsupported email send
+what about the other one,ambiguous,Missing conversational antecedent
+help,ambiguous,Single-word ambiguous request
