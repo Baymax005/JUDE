@@ -1,9 +1,8 @@
 venv/
 cache/
-models/ollama/
-models/audio/
-models/tier1_router/*.onnx
+models/
 data/
+reports/
 *.db
 *.sqlite
 *.sqlite3

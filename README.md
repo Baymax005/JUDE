@@ -67,6 +67,61 @@ After downloading `tier1_router_bundle.zip`, extract its contents into `models/t
 
 ---
 
+## Evaluation & Benchmark Results
+
+All classification metrics below were measured on the held-out stratified **10% test split (`n = 108`, `SEED = 42`)** and the unseen **OOD / ambiguity test set (`n = 30`)**. Local hardware measurements were captured on a **Local 6-Core x86-64 CPU** and **Local 4 GB VRAM CUDA GPU**.
+
+### 1. Intent Classification (`n = 108` Held-Out Test Split)
+
+| Model | Test Accuracy | Macro Precision | Macro Recall | Macro-F1 | Typed Acc | Voice Acc |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **TF-IDF + Logistic Regression (`C=5.0`)** | `99.07%` | `0.9915` | `0.9907` | `0.9907` | `98.44%` | `100.00%` |
+| **Fine-Tuned DistilBERT (FP32, best epoch 3)** | `98.15%` | `0.9829` | `0.9815` | `0.9814` | `98.44%` | `97.73%` |
+| **INT8 ONNX DistilBERT (CPU runtime)** | `96.30%` | — | — | `0.9632` | — | — |
+
+> While a tuned linear baseline matches DistilBERT within a single sample on clean in-vocabulary test queries, DistilBERT provides contextual subword generalization on unseen paraphrases and clean probability separation for OOD gating.
+
+### 2. Calibration & 3-Way Confidence Gate (`n = 108` ID + `n = 30` OOD)
+
+| Metric | Measured Value |
+| :--- | :---: |
+| **ID Direct-Route Accuracy (`confidence >= 0.80`)** | **`100.00%`** |
+| **OOD Blocked from Direct Execution (`confidence < 0.80`)** | **`96.7%`** (`29 / 30`) |
+| **OOD Auto-Escalated to Tier 2 (`confidence < 0.55`)** | **`53.3%`** (`16 / 30` escalated, `13 / 30` confirm) |
+| **ID vs. OOD ROC-AUC (Max Softmax)** | **`0.9469`** |
+| **Validation ECE (`T = 1.0`)** | `0.1045` |
+
+### 3. Tier 1 Footprint & CPU Inference Latency
+
+| Runtime | Footprint | Mean Latency | P50 Latency | P95 Latency |
+| :--- | :---: | :---: | :---: | :---: |
+| **PyTorch FP32 (Colab 2-vCPU)** | `255.45 MB` | `114.56 ms` | `91.72 ms` | `229.71 ms` |
+| **ONNX INT8 (Colab 2-vCPU)** | `132.47 MB` (`-48.14%`) | `51.49 ms` | `44.05 ms` | `100.72 ms` |
+| **ONNX INT8 (Local 6-Core x86-64 CPU, `threads=4`)** | `132.47 MB` | **`6.61 ms`** | **`6.58 ms`** | **`8.81 ms`** |
+
+*Running Tier 1 on `CPUExecutionProvider` keeps the runtime free of multi-GB CUDA dependencies and leaves 100% of GPU VRAM available for Tier 2.*
+
+### 4. Tier 2 Local `jude` (1.5B) GPU vs. CPU Inference
+
+| Execution Mode | VRAM Used | Generation Speed | Generation Latency | Total Latency |
+| :--- | :---: | :---: | :---: | :---: |
+| **Local 6-Core x86-64 CPU (`num_gpu=0`)** | `0.0 / 1118.8 MB` | `19.23 tok/s` | `1153.4 ms` | `1239.6 ms` |
+| **Local 4 GB VRAM CUDA GPU (`num_gpu=99`)** | `1115.2 / 1115.2 MB` | **`24.11 tok/s`** (`1.25x`) | **`912.4 ms`** | **`970.0 ms`** |
+
+*Tier 1 (`6.61 ms` mean) resolves deterministic commands ~147× faster than waking Tier 2 (`970.0 ms` total on GPU).*
+
+### Training & Evaluation Charts
+
+| Training vs. Validation Loss | Test Set Confusion Matrix |
+| :---: | :---: |
+| ![Training vs Validation Loss](docs/benchmarks/loss_curve.png) | ![Confusion Matrix](docs/benchmarks/confusion_matrix.png) |
+
+| Confidence Calibration & OOD Gate | FP32 PyTorch vs. INT8 ONNX |
+| :---: | :---: |
+| ![Confidence Histogram OOD](docs/benchmarks/confidence_histogram_ood.png) | ![FP32 vs INT8 Benchmark](docs/benchmarks/fp32_vs_int8_benchmark.png) |
+
+---
+
 ## Portable Local Setup & Verification
 
 `run_jude.ps1` keeps virtual environments, caches, temporary files, and Ollama model paths self-contained inside the project folder:
