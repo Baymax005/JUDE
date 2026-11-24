@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 import sys
+import traceback
 
 from app.config import (
+    CACHE_DIR,
     MEMORY_DB_PATH,
     OLLAMA_BASE_URL,
     OLLAMA_MODEL,
@@ -13,6 +16,19 @@ from app.config import (
     assert_no_c_drive_leakage,
     configure_d_drive_env,
 )
+
+
+def _redirect_windowless_streams() -> None:
+    """Redirect stdout/stderr to a local log file when launched under pythonw.exe."""
+    if sys.stdout is not None and sys.stderr is not None:
+        return
+    log_path = CACHE_DIR / "tmp" / "jude_gui.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_file = log_path.open("a", encoding="utf-8", buffering=1)
+    if sys.stdout is None:
+        sys.stdout = log_file
+    if sys.stderr is None:
+        sys.stderr = log_file
 
 
 def _print_banner(router_status: str) -> None:
@@ -33,6 +49,7 @@ def _print_banner(router_status: str) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     configure_d_drive_env()
+    _redirect_windowless_streams()
     assert_no_c_drive_leakage()
 
     parser = argparse.ArgumentParser(description="J.U.D.E. Desktop AI Assistant")
@@ -64,8 +81,29 @@ def main(argv: list[str] | None = None) -> int:
     app.setQuitOnLastWindowClosed(False)
     window = JudeFloatingWindow()
     window.show()
+    window.raise_()
     return app.exec()
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except Exception:
+        err_text = traceback.format_exc()
+        try:
+            log_path = CACHE_DIR / "tmp" / "jude_gui.log"
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            with log_path.open("a", encoding="utf-8") as f:
+                f.write(err_text + "\n")
+        except Exception:
+            pass
+        try:
+            ctypes.windll.user32.MessageBoxW(
+                0,
+                f"J.U.D.E. failed to start:\n\n{err_text[-800:]}",
+                "J.U.D.E. Startup Error",
+                0x10,
+            )
+        except Exception:
+            pass
+        raise

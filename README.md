@@ -124,10 +124,10 @@ All classification metrics below were measured on the held-out stratified **10% 
 
 ## Portable Local Setup & Verification
 
-`run_jude.ps1` and `launch_jude.bat` keep virtual environments, caches, temporary files, SQLite memory, backups, and Ollama model paths self-contained inside the project folder:
+`run_jude.ps1`, `launch_jude.vbs` (silent zero-terminal launch), and `launch_jude.bat` keep virtual environments, caches, temporary files, SQLite memory, backups, and Ollama model paths self-contained inside the project folder:
 
 ```powershell
-# Launch the floating Baymax desktop widget (or double-click launch_jude.bat)
+# Launch the floating Baymax desktop widget (or double-click launch_jude.vbs / launch_jude.bat)
 .\run_jude.ps1
 
 # Verify environment isolation + Tier 1 ONNX router
