@@ -23,14 +23,14 @@ from PySide6.QtWidgets import (
 )
 
 from app.engine import EngineResponse, JudeEngine
-from app.ui.baymax_avatar import AvatarState, BaymaxAvatarWidget, build_baymax_tray_icon
 from app.ui.confirm_dialog import ConfirmationDialog
+from app.ui.jude_avatar import AvatarState, JudeAvatarWidget, build_jude_tray_icon
 from app.voice.listener import VoiceListener
 from app.voice.tts import VoiceSpeaker
 
 
 class _TaskWorker(QObject):
-    """Runs JudeEngine tasks off the GUI thread so Baymax animations remain 60 FPS."""
+    """Runs JudeEngine tasks off the GUI thread so J.U.D.E. animations remain 60 FPS."""
 
     finished = Signal(object)
     failed = Signal(str)
@@ -47,7 +47,7 @@ class _TaskWorker(QObject):
 
 
 class JudeFloatingWindow(QWidget):
-    """Frameless always-on-top floating Baymax widget + expandable J.U.D.E. HUD."""
+    """Frameless always-on-top floating J.U.D.E. widget + expandable HUD."""
 
     def __init__(
         self,
@@ -68,7 +68,7 @@ class JudeFloatingWindow(QWidget):
         self._history_html: list[str] = []
 
         self.setWindowTitle("J.U.D.E.")
-        self.setWindowIcon(build_baymax_tray_icon())
+        self.setWindowIcon(build_jude_tray_icon())
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
@@ -91,7 +91,7 @@ class JudeFloatingWindow(QWidget):
         self._fg_timer.start()
 
         self._append_system_message(
-            f"Ready ({self.engine.router_status}). Click Baymax to collapse or ask anything."
+            f"Ready ({self.engine.router_status}). Click J.U.D.E. to collapse or ask anything."
         )
 
     def _build_ui(self) -> None:
@@ -205,7 +205,7 @@ class JudeFloatingWindow(QWidget):
 
         collapse_btn = QPushButton("—")
         collapse_btn.setProperty("class", "iconBtn")
-        collapse_btn.setToolTip("Collapse to floating Baymax widget")
+        collapse_btn.setToolTip("Collapse to floating J.U.D.E. widget")
         collapse_btn.clicked.connect(self.toggle_hud)
 
         header_row.addWidget(brand_lbl)
@@ -250,12 +250,12 @@ class JudeFloatingWindow(QWidget):
         self.hud_card.setVisible(False)
         root.addWidget(self.hud_card, 0, Qt.AlignmentFlag.AlignRight)
 
-        # Compact Floating Baymax Dock (always visible)
+        # Compact Floating J.U.D.E. Dock (always visible)
         dock_col = QVBoxLayout()
         dock_col.setSpacing(2)
         dock_col.setContentsMargins(0, 0, 0, 0)
 
-        self.avatar = BaymaxAvatarWidget(self, size=108)
+        self.avatar = JudeAvatarWidget(self, size=108)
         self.avatar.clicked.connect(self.toggle_hud)
         self.avatar.drag_moved.connect(self._on_avatar_dragged)
         dock_col.addWidget(self.avatar, 0, Qt.AlignmentFlag.AlignCenter)
@@ -302,7 +302,7 @@ class JudeFloatingWindow(QWidget):
         self.tray_icon: QSystemTrayIcon | None = None
         if not QSystemTrayIcon.isSystemTrayAvailable():
             return
-        tray = QSystemTrayIcon(build_baymax_tray_icon(), self)
+        tray = QSystemTrayIcon(build_jude_tray_icon(), self)
         tray.setToolTip("J.U.D.E. Desktop Assistant")
 
         menu = QMenu()

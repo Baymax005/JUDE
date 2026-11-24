@@ -71,7 +71,7 @@ class OllamaClient:
         prompt: str,
         system: str | None = None,
         temperature: float = 0.3,
-        max_tokens: int = 320,
+        max_tokens: int = 450,
     ) -> str:
         """Send a single-turn chat request to local Ollama and return the reply text."""
         if not self.ensure_server_running():

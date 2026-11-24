@@ -9,6 +9,18 @@ import win32process
 from app.tier2.ollama_client import OllamaClient
 
 _IGNORED_TITLES = {"", "Program Manager", "Windows Input Experience"}
+_IGNORED_CHROME_LABELS = {
+    "Minimize",
+    "Maximize",
+    "Restore",
+    "Close",
+    "System",
+    "Close Tab",
+    "New Tab",
+    "Back",
+    "Forward",
+    "Reload",
+}
 
 
 def _find_external_foreground_hwnd() -> int:
@@ -59,7 +71,13 @@ def capture_window_context(target_hwnd: int | None = None, max_chars: int = 2500
         def _add_snippet(val: str) -> None:
             nonlocal total_len
             cleaned = " ".join(val.strip().split())
-            if not cleaned or len(cleaned) < 2 or cleaned in seen or total_len >= max_chars:
+            if (
+                not cleaned
+                or len(cleaned) < 2
+                or cleaned in _IGNORED_CHROME_LABELS
+                or cleaned in seen
+                or total_len >= max_chars
+            ):
                 return
             seen.add(cleaned)
             remaining = max_chars - total_len
@@ -77,7 +95,7 @@ def capture_window_context(target_hwnd: int | None = None, max_chars: int = 2500
             root_ctrl = auto.ControlFromHandle(hwnd)
             queue: list[tuple[auto.Control, int]] = [(root_ctrl, 0)]
             visited = 0
-            while queue and visited < 120 and total_len < max_chars:
+            while queue and visited < 350 and total_len < max_chars:
                 ctrl, depth = queue.pop(0)
                 visited += 1
                 try:
@@ -91,7 +109,7 @@ def capture_window_context(target_hwnd: int | None = None, max_chars: int = 2500
                                 _add_snippet(vp.Value)
                         except Exception:
                             pass
-                    if depth < 6:
+                    if depth < 10:
                         for child in ctrl.GetChildren():
                             queue.append((child, depth + 1))
                 except Exception:
@@ -126,4 +144,4 @@ def explain_screen(
         f"Visible UI Text:\n{body}\n\n"
         "Explain clearly and concisely what is shown and how to fix any error if one is present."
     )
-    return ollama.chat(prompt, temperature=0.2, max_tokens=300)
+    return ollama.chat(prompt, temperature=0.2, max_tokens=450)

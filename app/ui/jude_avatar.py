@@ -18,7 +18,7 @@ from PySide6.QtWidgets import QWidget
 
 
 class AvatarState(str, Enum):
-    """Visual states for the Baymax-style floating avatar."""
+    """Visual states for the J.U.D.E. floating avatar."""
 
     IDLE = "idle"
     LISTENING = "listening"
@@ -40,8 +40,8 @@ _STATE_COLORS: dict[AvatarState, QColor] = {
 }
 
 
-class BaymaxAvatarWidget(QWidget):
-    """Pure QPainter Baymax-style glossy capsule robot head with blinking eyes and glow ring."""
+class JudeAvatarWidget(QWidget):
+    """Pure QPainter J.U.D.E. glossy capsule robot head with blinking eyes and glow ring."""
 
     clicked = Signal()
     drag_moved = Signal(QPoint)
@@ -148,7 +148,7 @@ class BaymaxAvatarWidget(QWidget):
         ring_color = QColor(_STATE_COLORS.get(self._state, QColor("#38BDF8")))
         pulse = 0.5 + 0.5 * math.sin(self._phase * 1.4)
 
-        # 1. Soft ground shadow below capsule (shrinks slightly as head rises)
+        # 1. Soft ground shadow below capsule
         shadow_scale = 1.0 - (bob_y / 18.0)
         shadow_w = w * 0.50 * shadow_scale
         shadow_h = h * 0.11 * shadow_scale
@@ -200,7 +200,7 @@ class BaymaxAvatarWidget(QWidget):
         painter.setPen(QPen(QColor("#CBD5E1"), 1.3))
         painter.drawRoundedRect(head_rect, head_h / 2.0, head_h / 2.0)
 
-        # Subtle glossy specular reflection along upper-left curve
+        # Specular highlight along upper-left curve
         highlight_path = QPainterPath()
         hl_rect = head_rect.adjusted(head_w * 0.14, head_h * 0.10, -head_w * 0.34, -head_h * 0.52)
         highlight_path.addRoundedRect(hl_rect, hl_rect.height() / 2.0, hl_rect.height() / 2.0)
@@ -208,14 +208,13 @@ class BaymaxAvatarWidget(QWidget):
         painter.setBrush(QColor(255, 255, 255, 160))
         painter.drawPath(highlight_path)
 
-        # 5. Signature Baymax connected black eyes (●—●) with blink + subtle gaze
+        # 5. Connected black eyes with blink + subtle gaze
         gaze_x = math.sin(self._phase * 0.7) * 2.2 if self._state == AvatarState.THINKING_TIER2 else 0.0
         eye_y = cy + 0.5
         eye_sep = head_w * 0.25
         left_x = cx - eye_sep + gaze_x
         right_x = cx + eye_sep + gaze_x
 
-        # Blink curve: 0 -> 1 -> 0 smoothly
         if self._blink_progress <= 1.0:
             close_frac = self._blink_progress
         else:
@@ -223,19 +222,17 @@ class BaymaxAvatarWidget(QWidget):
         eye_rx = max(3.6, head_w * 0.072)
         eye_ry = max(1.0, eye_rx * (1.0 - 0.88 * close_frac))
 
-        # Connecting bridge line
         painter.setPen(QPen(QColor("#1E293B"), max(1.6, head_h * 0.036), Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
         painter.drawLine(QPoint(int(left_x), int(eye_y)), QPoint(int(right_x), int(eye_y)))
 
-        # Left and right eyes
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor("#0F172A"))
         painter.drawEllipse(QRectF(left_x - eye_rx, eye_y - eye_ry, eye_rx * 2.0, eye_ry * 2.0))
         painter.drawEllipse(QRectF(right_x - eye_rx, eye_y - eye_ry, eye_rx * 2.0, eye_ry * 2.0))
 
 
-def build_baymax_tray_icon(size: int = 64) -> QIcon:
-    """Paint a razor-sharp mini Baymax capsule icon in memory (0 MB external assets)."""
+def build_jude_tray_icon(size: int = 64) -> QIcon:
+    """Paint a razor-sharp mini J.U.D.E. capsule icon in memory (0 MB external assets)."""
     pixmap = QPixmap(size, size)
     pixmap.fill(Qt.GlobalColor.transparent)
 

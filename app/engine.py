@@ -101,23 +101,38 @@ class _FallbackRouter:
         )
 
 
-def _first_sentence(text: str) -> str:
-    cleaned = " ".join(text.strip().split())
-    for sep in (". ", "\n"):
-        if sep in cleaned:
-            part = cleaned.split(sep, 1)[0].strip()
-            if len(part) >= 12:
-                return part + "."
-    return cleaned[:180]
+def _spoken_excerpt(text: str, max_chars: int = 280) -> str:
+    """Keep up to 2 complete sentences for natural TTS replies (stripping source links)."""
+    body = text.split("\n\nSources:", 1)[0].strip()
+    cleaned = " ".join(body.split())
+    if len(cleaned) <= max_chars:
+        return cleaned
+    sentences = re.split(r"(?<=[.!?])\s+", cleaned)
+    picked: list[str] = []
+    total = 0
+    for s in sentences:
+        if total + len(s) + 1 > max_chars and picked:
+            break
+        picked.append(s)
+        total += len(s) + 1
+        if len(picked) >= 2:
+            break
+    return " ".join(picked) if picked else cleaned[:max_chars]
 
 
 _QUICK_SOCIAL_MAP: list[tuple[set[str], str]] = [
     (
         {
-            "hello", "hi", "hey", "yo", "hola", "hey jude", "hello jude", "hi jude",
+            "hello", "hi", "hey", "yo", "hola", "jude", "hey jude", "hello jude", "hi jude",
             "good morning", "good morning jude", "good afternoon", "good evening",
         },
         "Hello! I'm J.U.D.E., your local desktop assistant. I'm listening — how can I help you?",
+    ),
+    (
+        {
+            "who are you", "tell me about yourself", "what is your name", "what are you",
+        },
+        "I am J.U.D.E., your local-first Windows 11 desktop AI assistant. I handle fast commands locally and wake my reasoning model when you need deeper help.",
     ),
     (
         {
@@ -248,7 +263,7 @@ class JudeEngine:
             total_ms = (time.perf_counter() - t_start) * 1000.0
             return EngineResponse(
                 reply=reply,
-                spoken_summary=_first_sentence(reply),
+                spoken_summary=_spoken_excerpt(reply),
                 intent=route.intent,
                 tier_used="tier2",
                 confidence=route.confidence,
@@ -341,7 +356,7 @@ class JudeEngine:
             total_ms = (time.perf_counter() - t_start) * 1000.0
             return EngineResponse(
                 reply=reply,
-                spoken_summary=_first_sentence(reply),
+                spoken_summary=_spoken_excerpt(reply),
                 intent=route.intent,
                 tier_used="tier1",
                 confidence=route.confidence,
@@ -409,7 +424,7 @@ class JudeEngine:
         total_ms = (time.perf_counter() - t_start) * 1000.0
         return EngineResponse(
             reply=reply,
-            spoken_summary=_first_sentence(reply),
+            spoken_summary=_spoken_excerpt(reply),
             intent=route.intent,
             tier_used="tier2",
             confidence=route.confidence,
@@ -448,7 +463,7 @@ class JudeEngine:
             total_ms = (time.perf_counter() - t_start) * 1000.0
             return EngineResponse(
                 reply=reply,
-                spoken_summary=_first_sentence(reply),
+                spoken_summary=_spoken_excerpt(reply),
                 intent=pending.intent,
                 tier_used="tier1",
                 confidence=pending.confidence,
@@ -467,7 +482,7 @@ class JudeEngine:
             total_ms = (time.perf_counter() - t_start) * 1000.0
             return EngineResponse(
                 reply=reply,
-                spoken_summary=_first_sentence(reply),
+                spoken_summary=_spoken_excerpt(reply),
                 intent=pending.intent,
                 tier_used="tier2",
                 confidence=pending.confidence,
@@ -482,7 +497,7 @@ class JudeEngine:
         total_ms = (time.perf_counter() - t_start) * 1000.0
         return EngineResponse(
             reply=reply,
-            spoken_summary=_first_sentence(reply),
+            spoken_summary=_spoken_excerpt(reply),
             intent=pending.intent,
             tier_used="tier1",
             confidence=pending.confidence,
@@ -524,7 +539,7 @@ class JudeEngine:
             total_ms = (time.perf_counter() - t_start) * 1000.0
             return EngineResponse(
                 reply=reply,
-                spoken_summary=_first_sentence(reply),
+                spoken_summary=_spoken_excerpt(reply),
                 intent="GENERAL_CHAT",
                 tier_used="tier2",
                 confidence=pending.confidence,

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import inspect
 import os
+import re
 import threading
 import time
 from typing import Callable
@@ -11,20 +13,39 @@ from PySide6.QtCore import QObject, Signal
 
 from app.config import AUDIO_MODELS_DIR
 
+_INITIAL_PROMPT = (
+    "Jude, Hey Jude, Hello Jude. Commands for Jude: remember, recall memory, "
+    "open folder, compress zip, system status, explain screen, edit Word document, "
+    "search the web, tell me about yourself."
+)
+
 _HALLUCINATION_PHRASES = {
     "you",
     "you.",
+    "i do",
+    "i do.",
     "thank you",
     "thank you.",
     "thanks for watching",
     "thanks for watching.",
     "bye",
     "bye.",
+    "a-mail",
+    "a-mail.",
+    "okay",
+    "okay.",
 }
 
 
+def normalize_wake_word(text: str) -> str:
+    """Correct common acoustic near-misses for the 'Jude' wake word."""
+    fixed = re.sub(r"\b(hey|hi|hello)\s+(?:dude|jood|june|jewel|judi)\b", r"\1 Jude", text, flags=re.IGNORECASE)
+    fixed = re.sub(r"^(?:dude|jood)\b", "Jude", fixed, flags=re.IGNORECASE)
+    return fixed
+
+
 class VoiceListener(QObject):
-    """Hands-free local microphone listener backed by faster-whisper (tiny.en INT8)."""
+    """Hands-free local microphone listener backed by faster-whisper (small.en INT8)."""
 
     speech_started = Signal()
     utterance_ready = Signal(str)
@@ -44,6 +65,7 @@ class VoiceListener(QObject):
         self._lock = threading.Lock()
         self._echo_guard_fn = echo_guard_fn
         self._model = None
+        self._transcribe_params: set[str] = set()
 
         self._thread: threading.Thread | None = None
         if not headless:
@@ -86,12 +108,13 @@ class VoiceListener(QObject):
 
             AUDIO_MODELS_DIR.mkdir(parents=True, exist_ok=True)
             self._model = WhisperModel(
-                "tiny.en",
+                "small.en",
                 device="cpu",
                 compute_type="int8",
                 download_root=str(AUDIO_MODELS_DIR),
                 cpu_threads=4,
             )
+            self._transcribe_params = set(inspect.signature(self._model.transcribe).parameters)
         return self._model
 
     def _listen_loop(self) -> None:
@@ -125,10 +148,10 @@ class VoiceListener(QObject):
 
                         if not in_speech:
                             pre_roll.append(chunk)
-                            if len(pre_roll) > 3:
+                            if len(pre_roll) > 6:  # 600 ms pre-roll protects word starts
                                 pre_roll.pop(0)
 
-                            thresh = max(0.012, noise_floor * 2.8)
+                            thresh = max(0.015, noise_floor * 3.0)
                             if rms >= thresh:
                                 speech_hits += 1
                                 if speech_hits >= 2:
@@ -141,14 +164,14 @@ class VoiceListener(QObject):
                                 noise_floor = 0.92 * noise_floor + 0.08 * min(rms, 0.02)
                         else:
                             frames.append(chunk)
-                            cont_thresh = max(0.009, noise_floor * 2.0)
+                            cont_thresh = max(0.010, noise_floor * 2.1)
                             if rms < cont_thresh:
                                 silence_frames += 1
                             else:
                                 silence_frames = 0
 
-                            # Stop after ~0.75s silence (8 frames) or 12s max (120 frames)
-                            if silence_frames >= 8 or len(frames) >= 120:
+                            # Stop after ~1.1s silence (11 frames) or 12s max (120 frames)
+                            if silence_frames >= 11 or len(frames) >= 120:
                                 clip = np.concatenate(frames)
                                 in_speech = False
                                 speech_hits = 0
@@ -157,7 +180,7 @@ class VoiceListener(QObject):
 
                                 dur_sec = len(clip) / float(sample_rate)
                                 peak_rms = float(np.sqrt(np.mean(clip * clip)))
-                                if dur_sec >= 0.35:
+                                if dur_sec >= 0.45:
                                     text = self._transcribe_clip(model, clip, peak_rms)
                                     if text:
                                         self.utterance_ready.emit(text)
@@ -167,23 +190,38 @@ class VoiceListener(QObject):
                 time.sleep(2.0)
 
     def _transcribe_clip(self, model, clip: np.ndarray, peak_rms: float) -> str:
-        segments, _info = model.transcribe(
-            clip,
-            language="en",
-            beam_size=1,
-            vad_filter=True,
-        )
+        kwargs: dict = {
+            "language": "en",
+            "beam_size": 2,
+            "vad_filter": True,
+            "initial_prompt": _INITIAL_PROMPT,
+            "condition_on_previous_text": False,
+        }
+        if "hotwords" in self._transcribe_params:
+            kwargs["hotwords"] = "Jude"
+
+        segments, _info = model.transcribe(clip, **kwargs)
         parts: list[str] = []
+        logprobs: list[float] = []
         for seg in segments:
-            if getattr(seg, "no_speech_prob", 0.0) > 0.65:
+            no_speech = getattr(seg, "no_speech_prob", 0.0)
+            avg_lp = getattr(seg, "avg_logprob", 0.0)
+            if no_speech > 0.55 or avg_lp < -0.90:
                 continue
             txt = seg.text.strip()
             if txt:
                 parts.append(txt)
+                logprobs.append(float(avg_lp))
 
         full_text = " ".join(parts).strip()
         if not full_text:
             return ""
-        if full_text.lower() in _HALLUCINATION_PHRASES and peak_rms < 0.025:
+
+        mean_lp = sum(logprobs) / len(logprobs) if logprobs else 0.0
+        low_text = full_text.lower()
+        if low_text in _HALLUCINATION_PHRASES and (peak_rms < 0.030 or mean_lp < -0.45):
             return ""
-        return full_text
+        if len(full_text.split()) <= 2 and mean_lp < -0.65:
+            return ""
+
+        return normalize_wake_word(full_text)

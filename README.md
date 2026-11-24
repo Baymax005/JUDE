@@ -127,7 +127,7 @@ All classification metrics below were measured on the held-out stratified **10% 
 `run_jude.ps1`, `launch_jude.vbs` (silent zero-terminal launch), and `launch_jude.bat` keep virtual environments, caches, temporary files, SQLite memory, backups, and Ollama model paths self-contained inside the project folder:
 
 ```powershell
-# Launch the floating Baymax desktop widget (or double-click launch_jude.vbs / launch_jude.bat)
+# Launch the floating J.U.D.E. desktop widget (or double-click launch_jude.vbs / launch_jude.bat)
 .\run_jude.ps1
 
 # Verify environment isolation + Tier 1 ONNX router
@@ -145,10 +145,10 @@ All classification metrics below were measured on the held-out stratified **10% 
 
 ---
 
-## Floating Baymax Desktop Widget & Safety Controls
+## Floating J.U.D.E. Desktop Widget & Safety Controls
 
 - **Pure PySide6 `QPainter` Avatar (`0 MB` external images):** Renders a HiDPI glossy porcelain-white capsule head (`●—●`) with periodic eye blinking, smooth floating bob, and color-coded status ring (`IDLE` cyan, `Listening` teal, `Tier 1` emerald, `Tier 2` violet rotating arc, `Confirm` amber, `Speaking` sky-blue, `Error` red).
-- **Hands-Free Voice & Expandable HUD:** Local `faster-whisper` (`tiny.en` INT8) listens on-device with echo suppression while J.U.D.E. speaks via Windows SAPI5 (`pyttsx3`). Click Baymax to expand/collapse the chat HUD, drag to reposition anywhere on screen, or toggle **Mic On / Mic Off** and **Voice On / Muted** from the dock pills, HUD header, or system tray menu.
+- **Hands-Free Voice & Expandable HUD:** Local `faster-whisper` (`small.en` INT8) listens on-device with echo suppression while J.U.D.E. speaks via Windows SAPI5. Click J.U.D.E. to expand/collapse the chat HUD, drag to reposition anywhere on screen, or toggle **Mic On / Mic Off** and **Voice On / Muted** from the dock pills, HUD header, or system tray menu.
 - **Safety-by-Design Confirmation Gate:** File compression (`COMPRESS_FILES`), Word document edits (`EDIT_DOCUMENT` with editable before/after diff preview + timestamped snapshots saved to `backups/`), and medium-confidence (`0.55–0.80`) Tier 1 actions always pause for explicit confirmation before modifying anything.
 
 ---

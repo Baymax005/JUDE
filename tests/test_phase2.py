@@ -148,37 +148,39 @@ def test_screen_reader_off_main_thread() -> None:
     print("[OK] Thread-safe Windows UIA screen reader passed")
 
 
-def test_pure_qpainter_baymax_and_zero_images() -> None:
+def test_pure_qpainter_jude_and_zero_images() -> None:
     from PySide6.QtWidgets import QApplication
 
     from app.engine import PendingConfirmation
-    from app.ui.baymax_avatar import AvatarState, BaymaxAvatarWidget, build_baymax_tray_icon
     from app.ui.confirm_dialog import ConfirmationDialog
     from app.ui.floating_widget import JudeFloatingWindow
+    from app.ui.jude_avatar import AvatarState, JudeAvatarWidget, build_jude_tray_icon
 
     image_exts = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp", ".bmp"}
     found_imgs = [p for p in (ROOT_DIR / "app").rglob("*") if p.suffix.lower() in image_exts]
     assert not found_imgs, f"Expected 0 external image assets under app/, found: {found_imgs}"
 
+    # Verify zero leftover 'baymax' strings in app/
+    for py_file in (ROOT_DIR / "app").rglob("*.py"):
+        assert "baymax" not in py_file.read_text(encoding="utf-8").lower(), f"Found 'baymax' in {py_file}"
+
     app = QApplication.instance() or QApplication([])
 
-    avatar = BaymaxAvatarWidget(size=108)
+    avatar = JudeAvatarWidget(size=108)
     for st in AvatarState:
         avatar.set_state(st)
         avatar.set_blink_fraction(0.0)
         pm = avatar.grab()
         img = pm.toImage()
         assert img.width() == 108 and img.height() == 108
-        # Verify visible non-transparent pixels exist in center capsule region
         center_px = img.pixelColor(54, 52)
         assert center_px.alpha() > 0, f"Expected opaque white capsule pixel at center for {st}"
 
-    # Verify blink state renders cleanly
     avatar.set_blink_fraction(1.0)
     blink_img = avatar.grab().toImage()
     assert blink_img.width() == 108
 
-    tray_icon = build_baymax_tray_icon(64)
+    tray_icon = build_jude_tray_icon(64)
     assert not tray_icon.isNull()
 
     pending = PendingConfirmation(
@@ -207,7 +209,45 @@ def test_pure_qpainter_baymax_and_zero_images() -> None:
     win._quit_app()
     win.close()
     app.processEvents()
-    print("[OK] Pure QPainter Baymax UI, blinking states, and 0 MB image check passed")
+    print("[OK] Pure QPainter J.U.D.E. UI, blinking states, and 0 MB image check passed")
+
+
+def test_tts_normalization_and_multi_utterance() -> None:
+    import time
+    from app.voice.listener import normalize_wake_word
+    from app.voice.tts import VoiceSpeaker, normalize_for_speech
+
+    spoken = normalize_for_speech("Hello! I'm **J.U.D.E.**, see [docs](https://example.com) for `JUDE` info.")
+    assert "J.U.D.E" not in spoken and "https://" not in spoken and "Jude" in spoken, spoken
+    assert normalize_wake_word("hey dude open downloads") == "hey Jude open downloads"
+
+    spoken_items: list[str] = []
+
+    class _StubVoice:
+        def Speak(self, text: str, _flags: int = 0) -> None:
+            if text:
+                spoken_items.append(text)
+
+        def WaitUntilDone(self, _ms: int = 80) -> bool:
+            return True
+
+    speaker = VoiceSpeaker(muted=False, _voice_factory=_StubVoice)
+    try:
+        speaker.speak("First test for J.U.D.E.")
+        speaker.speak("Second test for J.U.D.E.")
+        speaker.speak("Third test for J.U.D.E.")
+        deadline = time.monotonic() + 10.0
+        while speaker.spoken_count < 3 and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert speaker.spoken_count == 3, f"Expected 3 spoken utterances, got {speaker.spoken_count}"
+        assert spoken_items == [
+            "First test for Jude",
+            "Second test for Jude",
+            "Third test for Jude",
+        ], spoken_items
+    finally:
+        speaker.stop()
+    print("[OK] Multi-utterance TTS queue + 'Jude' speech normalization passed")
 
 
 def main() -> int:
@@ -217,7 +257,8 @@ def main() -> int:
     test_compression_confirmation_gate()
     test_word_editor_backup_and_safety()
     test_screen_reader_off_main_thread()
-    test_pure_qpainter_baymax_and_zero_images()
+    test_pure_qpainter_jude_and_zero_images()
+    test_tts_normalization_and_multi_utterance()
     print("\nALL PHASE 2 TESTS PASSED!")
     return 0
 
