@@ -11,3 +11,4 @@ uiautomation
 Pillow
 pyttsx3
 sounddevice
+faster-whisper

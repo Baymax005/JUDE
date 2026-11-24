@@ -31,7 +31,7 @@ class OllamaClient:
         except requests.RequestException:
             return False
 
-    def ensure_server_running(self, wait_seconds: float = 10.0) -> bool:
+    def ensure_server_running(self, wait_seconds: float = 25.0) -> bool:
         """Return True if local Ollama is reachable, attempting a hidden local start if needed."""
         if self.is_reachable(timeout=1.5):
             return True

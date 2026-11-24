@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import re
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -109,6 +111,44 @@ def _first_sentence(text: str) -> str:
     return cleaned[:180]
 
 
+_QUICK_SOCIAL_MAP: list[tuple[set[str], str]] = [
+    (
+        {
+            "hello", "hi", "hey", "yo", "hola", "hey jude", "hello jude", "hi jude",
+            "good morning", "good morning jude", "good afternoon", "good evening",
+        },
+        "Hello! I'm J.U.D.E., your local desktop assistant. I'm listening — how can I help you?",
+    ),
+    (
+        {
+            "can you hear me", "hey jude can you hear me", "jude can you hear me",
+            "are you listening", "are you there", "you there", "testing",
+        },
+        "Loud and clear! Ask me anything or give me a command.",
+    ),
+    (
+        {
+            "how are you", "how are you doing", "how are you jude",
+            "whats up", "what's up", "whats up jude", "what's up jude",
+        },
+        "Running smoothly and ready to help! What would you like to do?",
+    ),
+    (
+        {"thanks", "thank you", "thanks jude", "thank you jude", "ty"},
+        "You're welcome! Let me know if you need anything else.",
+    ),
+]
+
+
+def _match_quick_social(cleaned: str) -> str | None:
+    norm = re.sub(r"[^\w\s']", "", cleaned.lower()).strip()
+    norm = " ".join(norm.split())
+    for phrases, reply in _QUICK_SOCIAL_MAP:
+        if norm in phrases:
+            return reply
+    return None
+
+
 class JudeEngine:
     """Two-tier J.U.D.E. orchestrator connecting ONNX Tier 1 routing to Tier 1/2 handlers."""
 
@@ -182,6 +222,22 @@ class JudeEngine:
                 router_ms=0.0,
                 total_ms=0.0,
                 badge_text="Ready",
+            )
+
+        quick_reply = _match_quick_social(cleaned)
+        if quick_reply is not None:
+            threading.Thread(target=self.ollama.ensure_server_running, daemon=True).start()
+            total_ms = (time.perf_counter() - t_start) * 1000.0
+            return EngineResponse(
+                reply=quick_reply,
+                spoken_summary=quick_reply,
+                intent="GENERAL_CHAT",
+                tier_used="tier1",
+                confidence=1.0,
+                gate_action="direct",
+                router_ms=0.0,
+                total_ms=total_ms,
+                badge_text=f"Tier 1 · Instant · {total_ms:.1f} ms",
             )
 
         route = self.router.predict(cleaned)

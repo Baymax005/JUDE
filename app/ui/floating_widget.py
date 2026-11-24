@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 from app.engine import EngineResponse, JudeEngine
 from app.ui.baymax_avatar import AvatarState, BaymaxAvatarWidget, build_baymax_tray_icon
 from app.ui.confirm_dialog import ConfirmationDialog
+from app.voice.listener import VoiceListener
 from app.voice.tts import VoiceSpeaker
 
 
@@ -48,10 +49,18 @@ class _TaskWorker(QObject):
 class JudeFloatingWindow(QWidget):
     """Frameless always-on-top floating Baymax widget + expandable J.U.D.E. HUD."""
 
-    def __init__(self, engine: JudeEngine | None = None, speaker: VoiceSpeaker | None = None) -> None:
+    def __init__(
+        self,
+        engine: JudeEngine | None = None,
+        speaker: VoiceSpeaker | None = None,
+        listener: VoiceListener | None = None,
+    ) -> None:
         super().__init__()
         self.engine = engine or JudeEngine()
         self.speaker = speaker or VoiceSpeaker()
+        self.listener = listener or VoiceListener(
+            echo_guard_fn=lambda: self.speaker.is_speaking_or_cooling
+        )
         self._hud_open = False
         self._last_external_hwnd: int = 0
         self._active_thread: QThread | None = None
@@ -70,6 +79,10 @@ class JudeFloatingWindow(QWidget):
         self._build_ui()
         self._setup_tray()
         self._snap_bottom_right()
+
+        self.listener.speech_started.connect(self._on_speech_started)
+        self.listener.utterance_ready.connect(self._on_voice_utterance)
+        self.listener.status_changed.connect(self._append_system_message)
 
         # Track last external active window so "Explain Screen" sees the app behind J.U.D.E.
         self._fg_timer = QTimer(self)
@@ -182,6 +195,10 @@ class JudeFloatingWindow(QWidget):
         self.tier_badge = QLabel("Ready")
         self.tier_badge.setObjectName("tierBadge")
 
+        self.hud_mic_btn = QPushButton()
+        self.hud_mic_btn.setProperty("class", "iconBtn")
+        self.hud_mic_btn.clicked.connect(self.toggle_mic)
+
         self.hud_mute_btn = QPushButton()
         self.hud_mute_btn.setProperty("class", "iconBtn")
         self.hud_mute_btn.clicked.connect(self.toggle_mute)
@@ -194,6 +211,7 @@ class JudeFloatingWindow(QWidget):
         header_row.addWidget(brand_lbl)
         header_row.addWidget(self.tier_badge, 0, Qt.AlignmentFlag.AlignLeft)
         header_row.addStretch(1)
+        header_row.addWidget(self.hud_mic_btn)
         header_row.addWidget(self.hud_mute_btn)
         header_row.addWidget(collapse_btn)
         hud_layout.addLayout(header_row)
@@ -242,29 +260,42 @@ class JudeFloatingWindow(QWidget):
         self.avatar.drag_moved.connect(self._on_avatar_dragged)
         dock_col.addWidget(self.avatar, 0, Qt.AlignmentFlag.AlignCenter)
 
-        self.mini_mute_btn = QPushButton()
-        self.mini_mute_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.mini_mute_btn.setStyleSheet(
-            """
+        dock_pills = QHBoxLayout()
+        dock_pills.setSpacing(4)
+        dock_pills.setContentsMargins(0, 0, 0, 0)
+
+        pill_style = """
             QPushButton {
                 background-color: rgba(15, 23, 42, 225);
                 color: #E2E8F0;
                 border: 1px solid #334155;
                 border-radius: 10px;
-                padding: 2px 10px;
-                font-size: 11px;
+                padding: 2px 8px;
+                font-size: 10.5px;
                 font-weight: 600;
             }
             QPushButton:hover {
                 border-color: #38BDF8;
             }
-            """
-        )
+        """
+
+        self.mini_mic_btn = QPushButton()
+        self.mini_mic_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.mini_mic_btn.setStyleSheet(pill_style)
+        self.mini_mic_btn.clicked.connect(self.toggle_mic)
+
+        self.mini_mute_btn = QPushButton()
+        self.mini_mute_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.mini_mute_btn.setStyleSheet(pill_style)
         self.mini_mute_btn.clicked.connect(self.toggle_mute)
-        dock_col.addWidget(self.mini_mute_btn, 0, Qt.AlignmentFlag.AlignCenter)
+
+        dock_pills.addWidget(self.mini_mic_btn)
+        dock_pills.addWidget(self.mini_mute_btn)
+        dock_col.addLayout(dock_pills)
 
         root.addLayout(dock_col)
         self._refresh_mute_labels()
+        self._refresh_mic_labels()
         self.adjustSize()
 
     def _setup_tray(self) -> None:
@@ -277,6 +308,8 @@ class JudeFloatingWindow(QWidget):
         menu = QMenu()
         toggle_act = QAction("Show / Hide J.U.D.E. Panel", self)
         toggle_act.triggered.connect(self.toggle_hud)
+        mic_act = QAction("Toggle Microphone", self)
+        mic_act.triggered.connect(self.toggle_mic)
         mute_act = QAction("Toggle Voice Mute", self)
         mute_act.triggered.connect(self.toggle_mute)
         reset_act = QAction("Reset Widget Position", self)
@@ -285,6 +318,7 @@ class JudeFloatingWindow(QWidget):
         quit_act.triggered.connect(self._quit_app)
 
         menu.addAction(toggle_act)
+        menu.addAction(mic_act)
         menu.addAction(mute_act)
         menu.addAction(reset_act)
         menu.addSeparator()
@@ -326,9 +360,29 @@ class JudeFloatingWindow(QWidget):
         self.mini_mute_btn.setText(label)
         self.hud_mute_btn.setText(label)
 
+    def _refresh_mic_labels(self) -> None:
+        on = self.listener.enabled
+        label = "Mic On" if on else "Mic Off"
+        self.mini_mic_btn.setText(label)
+        self.hud_mic_btn.setText(label)
+
+    def toggle_mic(self) -> None:
+        self.listener.set_enabled(not self.listener.enabled)
+        self._refresh_mic_labels()
+
     def toggle_mute(self) -> None:
         self.speaker.set_muted(not self.speaker.muted)
         self._refresh_mute_labels()
+
+    def _on_speech_started(self) -> None:
+        if self._active_thread is None:
+            self.avatar.set_state(AvatarState.LISTENING)
+            self.tier_badge.setText("Listening...")
+
+    def _on_voice_utterance(self, text: str) -> None:
+        if self._active_thread is not None:
+            return
+        self.submit_query(text, from_voice=True)
 
     def toggle_hud(self) -> None:
         old_bottom_right = self.geometry().bottomRight()
@@ -373,12 +427,13 @@ class JudeFloatingWindow(QWidget):
         self.input_box.clear()
         self.submit_query(text)
 
-    def submit_query(self, text: str) -> None:
+    def submit_query(self, text: str, from_voice: bool = False) -> None:
         if self._active_thread is not None:
             return
         if not self._hud_open:
             self.toggle_hud()
-        self._append_message("You", text, "#38BDF8")
+        self.listener.set_paused(True)
+        self._append_message("You (Voice)" if from_voice else "You", text, "#38BDF8")
         self.tier_badge.setText("Routing...")
         self.avatar.set_state(AvatarState.THINKING_TIER2)
         self._set_busy(True)
@@ -410,6 +465,7 @@ class JudeFloatingWindow(QWidget):
         self._set_busy(False)
 
     def _on_engine_error(self, err: str) -> None:
+        self.listener.set_paused(False)
         self.avatar.set_state(AvatarState.ERROR)
         self.tier_badge.setText("Error")
         self._append_message("J.U.D.E.", f"Error: {err}", "#F87171")
@@ -444,9 +500,11 @@ class JudeFloatingWindow(QWidget):
         if resp.spoken_summary:
             self.speaker.speak(resp.spoken_summary)
 
+        self.listener.set_paused(False)
         QTimer.singleShot(2200, lambda: self.avatar.set_state(AvatarState.IDLE))
 
     def _quit_app(self) -> None:
+        self.listener.stop()
         self.speaker.stop()
         if self.tray_icon is not None:
             self.tray_icon.hide()

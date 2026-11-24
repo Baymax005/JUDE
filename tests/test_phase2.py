@@ -46,7 +46,14 @@ def test_tier1_memory_and_sysinfo() -> None:
         sys_res = engine.process("How much free space is left on my main drive?")
         assert sys_res.tier_used == "tier1", sys_res
         assert "GB free" in sys_res.reply, sys_res.reply
-        print("[OK] Tier 1 memory + system_info passed")
+
+        hi_res = engine.process("hello")
+        assert hi_res.tier_used == "tier1" and hi_res.total_ms < 50.0, hi_res
+        assert "J.U.D.E." in hi_res.reply and hi_res.spoken_summary, hi_res
+
+        hear_res = engine.process("hey jude can you hear me")
+        assert hear_res.tier_used == "tier1" and "Loud and clear" in hear_res.reply, hear_res
+        print("[OK] Tier 1 memory + system_info + instant greeting passed")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -195,6 +202,7 @@ def test_pure_qpainter_baymax_and_zero_images() -> None:
     win.toggle_hud()
     app.processEvents()
     assert win.hud_card.isVisible()
+    win.toggle_mic()
     win.toggle_mute()
     win._quit_app()
     win.close()

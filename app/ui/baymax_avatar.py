@@ -21,6 +21,7 @@ class AvatarState(str, Enum):
     """Visual states for the Baymax-style floating avatar."""
 
     IDLE = "idle"
+    LISTENING = "listening"
     FAST_TIER1 = "fast_tier1"
     THINKING_TIER2 = "thinking_tier2"
     CONFIRM_WAIT = "confirm_wait"
@@ -30,6 +31,7 @@ class AvatarState(str, Enum):
 
 _STATE_COLORS: dict[AvatarState, QColor] = {
     AvatarState.IDLE: QColor("#38BDF8"),
+    AvatarState.LISTENING: QColor("#06B6D4"),
     AvatarState.FAST_TIER1: QColor("#10B981"),
     AvatarState.THINKING_TIER2: QColor("#8B5CF6"),
     AvatarState.CONFIRM_WAIT: QColor("#F59E0B"),

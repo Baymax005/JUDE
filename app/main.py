@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import os
 import sys
 import traceback
 
@@ -76,6 +77,15 @@ def main(argv: list[str] | None = None) -> int:
     from PySide6.QtWidgets import QApplication
 
     from app.ui.floating_widget import JudeFloatingWindow
+
+    _mutex_handle = None
+    if os.environ.get("JUDE_HEADLESS_TEST") != "1":
+        _mutex_handle = ctypes.windll.kernel32.CreateMutexW(
+            None, False, "Local\\JUDE_Desktop_Assistant_SingleInstance"
+        )
+        if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+            print("J.U.D.E. is already running.")
+            return 0
 
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
