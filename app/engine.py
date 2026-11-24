@@ -1,0 +1,491 @@
+from __future__ import annotations
+
+import json
+import time
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+
+from app.config import (
+    BACKUPS_DIR,
+    DATA_DIR,
+    MEMORY_DB_PATH,
+    TIER1_CONFIDENCE_THRESHOLD,
+    TIER1_CONFIRM_THRESHOLD,
+    TIER1_MODEL_DIR,
+)
+from app.router.intent_router import IntentRouter, RouteResult
+from app.tier1.actions import execute_compression, get_system_info, open_target, plan_compression
+from app.tier1.memory import recall_memory, save_memory
+from app.tier2.ollama_client import OllamaClient
+from app.tier2.screen_reader import explain_screen
+from app.tier2.web_search import run_web_search
+from app.tier2.word_editor import apply_word_edit, prepare_word_edit
+
+
+@dataclass
+class PendingConfirmation:
+    """Action awaiting explicit user confirmation before executing."""
+
+    id: str
+    kind: str  # "compress", "word_edit", or "intent_confirm"
+    title: str
+    summary: str
+    intent: str
+    confidence: float
+    target_path: str = ""
+    backup_note: str = ""
+    before_text: str = ""
+    after_text: str = ""
+    payload: dict = field(default_factory=dict)
+
+
+@dataclass
+class EngineResponse:
+    """Unified output returned by JudeEngine to the UI or CLI."""
+
+    reply: str
+    spoken_summary: str
+    intent: str
+    tier_used: str  # "tier1", "tier2", or "pending"
+    confidence: float
+    gate_action: str
+    router_ms: float
+    total_ms: float
+    badge_text: str
+    sources: list[tuple[str, str]] = field(default_factory=list)
+    pending: PendingConfirmation | None = None
+
+
+class _FallbackRouter:
+    """Lightweight keyword fallback if the ONNX router bundle has not been installed yet."""
+
+    active_provider = "RuleFallback"
+
+    def predict(self, text: str, top_k: int = 3) -> RouteResult:
+        t0 = time.perf_counter()
+        low = text.lower()
+        if any(k in low for k in ("zip", "compress", "archive", "bundle")):
+            intent, tier = "COMPRESS_FILES", "tier1"
+        elif any(k in low for k in ("remember", "save ", "note down", "store ")):
+            intent, tier = "SAVE_MEMORY", "tier1"
+        elif any(k in low for k in ("recall", "remind me", "what did i save", "look up my")):
+            intent, tier = "RECALL_MEMORY", "tier1"
+        elif any(k in low for k in ("open ", "launch ", "start ")):
+            intent, tier = "OPEN_TARGET", "tier1"
+        elif any(k in low for k in ("battery", "free space", "ram", "cpu", "what time", "system status")):
+            intent, tier = "SYSTEM_INFO", "tier1"
+        elif "word" in low and any(k in low for k in ("rewrite", "polish", "shorten", "fix", "edit")):
+            intent, tier = "EDIT_DOCUMENT", "tier2"
+        elif any(k in low for k in ("on my screen", "read my screen", "traceback", "monitor")):
+            intent, tier = "EXPLAIN_SCREEN", "tier2"
+        elif any(k in low for k in ("search the web", "search online", "duckduckgo", "weather")):
+            intent, tier = "WEB_SEARCH", "tier2"
+        else:
+            intent, tier = "GENERAL_CHAT", "tier2"
+
+        latency_ms = (time.perf_counter() - t0) * 1000.0
+        return RouteResult(
+            text=text,
+            intent=intent,
+            tier=tier,
+            confidence=0.85,
+            gate_action="direct",
+            effective_tier=tier,
+            latency_ms=latency_ms,
+            provider=self.active_provider,
+            top_candidates=[(intent, 0.85)],
+        )
+
+
+def _first_sentence(text: str) -> str:
+    cleaned = " ".join(text.strip().split())
+    for sep in (". ", "\n"):
+        if sep in cleaned:
+            part = cleaned.split(sep, 1)[0].strip()
+            if len(part) >= 12:
+                return part + "."
+    return cleaned[:180]
+
+
+class JudeEngine:
+    """Two-tier J.U.D.E. orchestrator connecting ONNX Tier 1 routing to Tier 1/2 handlers."""
+
+    def __init__(
+        self,
+        model_dir: Path = TIER1_MODEL_DIR,
+        memory_db_path: Path = MEMORY_DB_PATH,
+        backups_dir: Path = BACKUPS_DIR,
+        feedback_path: Path | None = None,
+        ollama: OllamaClient | None = None,
+    ) -> None:
+        self.memory_db_path = Path(memory_db_path)
+        self.backups_dir = Path(backups_dir)
+        self.feedback_path = Path(feedback_path) if feedback_path else (DATA_DIR / "feedback.jsonl")
+        self.ollama = ollama or OllamaClient()
+
+        try:
+            self.router: IntentRouter | _FallbackRouter = IntentRouter(model_dir=model_dir)
+            self.using_onnx = True
+        except FileNotFoundError:
+            self.router = _FallbackRouter()
+            self.using_onnx = False
+
+        self._pending: dict[str, PendingConfirmation] = {}
+
+    @property
+    def router_status(self) -> str:
+        if self.using_onnx:
+            return (
+                f"ONNX INT8 ({self.router.active_provider}, "
+                f"gates >={TIER1_CONFIDENCE_THRESHOLD:.2f}/{TIER1_CONFIRM_THRESHOLD:.2f})"
+            )
+        return "Rule Fallback (ONNX bundle not found)"
+
+    def _log_feedback(self, event: str, text: str, intent: str, confidence: float) -> None:
+        self.feedback_path.parent.mkdir(parents=True, exist_ok=True)
+        record = {
+            "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "event": event,
+            "text": text,
+            "intent": intent,
+            "confidence": round(confidence, 4),
+        }
+        with self.feedback_path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(record) + "\n")
+
+    def _run_tier1_action(self, intent: str, text: str) -> str:
+        if intent == "SAVE_MEMORY":
+            return save_memory(text, db_path=self.memory_db_path)
+        if intent == "RECALL_MEMORY":
+            return recall_memory(text, db_path=self.memory_db_path)
+        if intent == "OPEN_TARGET":
+            _, msg = open_target(text)
+            return msg
+        if intent == "SYSTEM_INFO":
+            return get_system_info(text)
+        return f"Unsupported Tier 1 action: {intent}"
+
+    def process(self, text: str, target_hwnd: int | None = None) -> EngineResponse:
+        """Route and handle a user command through Tier 1 or Tier 2 with safety gates."""
+        t_start = time.perf_counter()
+        cleaned = " ".join(text.strip().split())
+        if not cleaned:
+            return EngineResponse(
+                reply="Type or ask a command for J.U.D.E.",
+                spoken_summary="",
+                intent="GENERAL_CHAT",
+                tier_used="tier1",
+                confidence=1.0,
+                gate_action="direct",
+                router_ms=0.0,
+                total_ms=0.0,
+                badge_text="Ready",
+            )
+
+        route = self.router.predict(cleaned)
+
+        # Low confidence (<0.55): escalate safely to Tier 2 general reasoning
+        if route.gate_action == "escalate":
+            reply = self.ollama.chat(cleaned)
+            total_ms = (time.perf_counter() - t_start) * 1000.0
+            return EngineResponse(
+                reply=reply,
+                spoken_summary=_first_sentence(reply),
+                intent=route.intent,
+                tier_used="tier2",
+                confidence=route.confidence,
+                gate_action=route.gate_action,
+                router_ms=route.latency_ms,
+                total_ms=total_ms,
+                badge_text=f"Escalated · Thinking · {total_ms / 1000:.2f} s",
+            )
+
+        # File compression ALWAYS requires explicit user confirmation
+        if route.intent == "COMPRESS_FILES":
+            plan = plan_compression(cleaned)
+            if not plan["ok"]:
+                total_ms = (time.perf_counter() - t_start) * 1000.0
+                return EngineResponse(
+                    reply=plan["error"],
+                    spoken_summary=plan["error"],
+                    intent=route.intent,
+                    tier_used="tier1",
+                    confidence=route.confidence,
+                    gate_action=route.gate_action,
+                    router_ms=route.latency_ms,
+                    total_ms=total_ms,
+                    badge_text=f"Tier 1 · Fast · {total_ms:.1f} ms",
+                )
+
+            pid = uuid.uuid4().hex[:10]
+            pending = PendingConfirmation(
+                id=pid,
+                kind="compress",
+                title="Confirm Zip Archive Creation",
+                summary=(
+                    f"Compress {plan['file_count']} file(s) ({plan['total_mb']:.2f} MB) "
+                    f"into a zip archive?"
+                ),
+                intent=route.intent,
+                confidence=route.confidence,
+                target_path=plan["archive_path"],
+                backup_note="Original source files remain untouched.",
+                payload={**plan, "original_text": cleaned, "router_ms": route.latency_ms},
+            )
+            self._pending[pid] = pending
+            total_ms = (time.perf_counter() - t_start) * 1000.0
+            return EngineResponse(
+                reply=f"Ready to create `{plan['archive_path']}`. Confirm to proceed.",
+                spoken_summary="Please confirm before I create the zip archive.",
+                intent=route.intent,
+                tier_used="pending",
+                confidence=route.confidence,
+                gate_action=route.gate_action,
+                router_ms=route.latency_ms,
+                total_ms=total_ms,
+                badge_text=f"Tier 1 · Confirm ({route.confidence:.0%})",
+                pending=pending,
+            )
+
+        # Medium confidence (0.55 - 0.80) on Tier 1 actions asks confirmation first
+        if route.gate_action == "confirm" and route.tier == "tier1":
+            pid = uuid.uuid4().hex[:10]
+            pending = PendingConfirmation(
+                id=pid,
+                kind="intent_confirm",
+                title=f"Confirm Action ({route.intent})",
+                summary=(
+                    f"Confidence is {route.confidence:.0%}. Run deterministic `{route.intent}` "
+                    "or escalate to Tier 2 reasoning instead?"
+                ),
+                intent=route.intent,
+                confidence=route.confidence,
+                payload={"original_text": cleaned, "intent": route.intent, "router_ms": route.latency_ms},
+            )
+            self._pending[pid] = pending
+            total_ms = (time.perf_counter() - t_start) * 1000.0
+            return EngineResponse(
+                reply=f"Confirm `{route.intent}` ({route.confidence:.0%}) or send to Tier 2.",
+                spoken_summary="Please confirm that action.",
+                intent=route.intent,
+                tier_used="pending",
+                confidence=route.confidence,
+                gate_action=route.gate_action,
+                router_ms=route.latency_ms,
+                total_ms=total_ms,
+                badge_text=f"Gate · Confirm ({route.confidence:.0%})",
+                pending=pending,
+            )
+
+        # Tier 1 direct execution
+        if route.tier == "tier1":
+            reply = self._run_tier1_action(route.intent, cleaned)
+            total_ms = (time.perf_counter() - t_start) * 1000.0
+            return EngineResponse(
+                reply=reply,
+                spoken_summary=_first_sentence(reply),
+                intent=route.intent,
+                tier_used="tier1",
+                confidence=route.confidence,
+                gate_action=route.gate_action,
+                router_ms=route.latency_ms,
+                total_ms=total_ms,
+                badge_text=f"Tier 1 · Fast · {total_ms:.1f} ms",
+            )
+
+        # Tier 2: EDIT_DOCUMENT always stages a diff preview + confirmation first
+        if route.intent == "EDIT_DOCUMENT":
+            prep = prepare_word_edit(cleaned, self.ollama)
+            total_ms = (time.perf_counter() - t_start) * 1000.0
+            if not prep.get("ok"):
+                err = prep.get("error", "Could not inspect Microsoft Word.")
+                return EngineResponse(
+                    reply=err,
+                    spoken_summary=err,
+                    intent=route.intent,
+                    tier_used="tier2",
+                    confidence=route.confidence,
+                    gate_action=route.gate_action,
+                    router_ms=route.latency_ms,
+                    total_ms=total_ms,
+                    badge_text=f"Tier 2 · Thinking · {total_ms / 1000:.2f} s",
+                )
+
+            pid = uuid.uuid4().hex[:10]
+            pending = PendingConfirmation(
+                id=pid,
+                kind="word_edit",
+                title=f"Confirm Word Edit ({prep['doc_name']})",
+                summary="Review the proposed revision below. A timestamped backup will be saved first.",
+                intent=route.intent,
+                confidence=route.confidence,
+                target_path=prep["doc_full_path"] or prep["doc_name"],
+                backup_note=f"Auto-backup saved into {self.backups_dir.name}/ before applying.",
+                before_text=prep["before_text"],
+                after_text=prep["after_text"],
+                payload={**prep, "original_text": cleaned, "router_ms": route.latency_ms},
+            )
+            self._pending[pid] = pending
+            return EngineResponse(
+                reply=f"Drafted a proposed edit for `{prep['doc_name']}`. Review and confirm to apply.",
+                spoken_summary="I drafted an edit for your Word document. Please review it.",
+                intent=route.intent,
+                tier_used="pending",
+                confidence=route.confidence,
+                gate_action=route.gate_action,
+                router_ms=route.latency_ms,
+                total_ms=total_ms,
+                badge_text=f"Tier 2 · Review Diff ({total_ms / 1000:.2f} s)",
+                pending=pending,
+            )
+
+        # Tier 2: EXPLAIN_SCREEN, WEB_SEARCH, GENERAL_CHAT
+        sources: list[tuple[str, str]] = []
+        if route.intent == "EXPLAIN_SCREEN":
+            reply = explain_screen(cleaned, self.ollama, target_hwnd=target_hwnd)
+        elif route.intent == "WEB_SEARCH":
+            reply, sources = run_web_search(cleaned, self.ollama)
+        else:
+            reply = self.ollama.chat(cleaned)
+
+        total_ms = (time.perf_counter() - t_start) * 1000.0
+        return EngineResponse(
+            reply=reply,
+            spoken_summary=_first_sentence(reply),
+            intent=route.intent,
+            tier_used="tier2",
+            confidence=route.confidence,
+            gate_action=route.gate_action,
+            router_ms=route.latency_ms,
+            total_ms=total_ms,
+            badge_text=f"Tier 2 · Thinking · {total_ms / 1000:.2f} s",
+            sources=sources,
+        )
+
+    def confirm_pending(
+        self, pending_id: str, edited_after_text: str | None = None
+    ) -> EngineResponse:
+        """Execute a staged confirmation action."""
+        t_start = time.perf_counter()
+        pending = self._pending.pop(pending_id, None)
+        if pending is None:
+            return EngineResponse(
+                reply="That pending action is no longer active.",
+                spoken_summary="",
+                intent="GENERAL_CHAT",
+                tier_used="tier1",
+                confidence=1.0,
+                gate_action="direct",
+                router_ms=0.0,
+                total_ms=0.0,
+                badge_text="Ready",
+            )
+
+        router_ms = float(pending.payload.get("router_ms", 0.0))
+        if pending.kind == "compress":
+            reply = execute_compression(
+                Path(pending.payload["source_path"]),
+                Path(pending.payload["archive_path"]),
+            )
+            total_ms = (time.perf_counter() - t_start) * 1000.0
+            return EngineResponse(
+                reply=reply,
+                spoken_summary=_first_sentence(reply),
+                intent=pending.intent,
+                tier_used="tier1",
+                confidence=pending.confidence,
+                gate_action="direct",
+                router_ms=router_ms,
+                total_ms=total_ms,
+                badge_text=f"Tier 1 · Confirmed · {total_ms:.1f} ms",
+            )
+
+        if pending.kind == "word_edit":
+            reply = apply_word_edit(
+                pending.payload,
+                revised_text=edited_after_text,
+                backups_dir=self.backups_dir,
+            )
+            total_ms = (time.perf_counter() - t_start) * 1000.0
+            return EngineResponse(
+                reply=reply,
+                spoken_summary=_first_sentence(reply),
+                intent=pending.intent,
+                tier_used="tier2",
+                confidence=pending.confidence,
+                gate_action="direct",
+                router_ms=router_ms,
+                total_ms=total_ms,
+                badge_text=f"Tier 2 · Applied · {total_ms:.0f} ms",
+            )
+
+        # intent_confirm
+        reply = self._run_tier1_action(pending.intent, pending.payload["original_text"])
+        total_ms = (time.perf_counter() - t_start) * 1000.0
+        return EngineResponse(
+            reply=reply,
+            spoken_summary=_first_sentence(reply),
+            intent=pending.intent,
+            tier_used="tier1",
+            confidence=pending.confidence,
+            gate_action="direct",
+            router_ms=router_ms,
+            total_ms=total_ms,
+            badge_text=f"Tier 1 · Confirmed · {total_ms:.1f} ms",
+        )
+
+    def cancel_pending(
+        self, pending_id: str, escalate_to_tier2: bool = False
+    ) -> EngineResponse:
+        """Cancel a staged action and log feedback, optionally escalating to Tier 2."""
+        t_start = time.perf_counter()
+        pending = self._pending.pop(pending_id, None)
+        if pending is None:
+            return EngineResponse(
+                reply="Cancelled.",
+                spoken_summary="",
+                intent="GENERAL_CHAT",
+                tier_used="tier1",
+                confidence=1.0,
+                gate_action="direct",
+                router_ms=0.0,
+                total_ms=0.0,
+                badge_text="Ready",
+            )
+
+        original_text = pending.payload.get("original_text", pending.summary)
+        self._log_feedback(
+            event="escalated" if escalate_to_tier2 else "cancelled",
+            text=original_text,
+            intent=pending.intent,
+            confidence=pending.confidence,
+        )
+
+        if escalate_to_tier2:
+            reply = self.ollama.chat(original_text)
+            total_ms = (time.perf_counter() - t_start) * 1000.0
+            return EngineResponse(
+                reply=reply,
+                spoken_summary=_first_sentence(reply),
+                intent="GENERAL_CHAT",
+                tier_used="tier2",
+                confidence=pending.confidence,
+                gate_action="escalate",
+                router_ms=float(pending.payload.get("router_ms", 0.0)),
+                total_ms=total_ms,
+                badge_text=f"Tier 2 · Thinking · {total_ms / 1000:.2f} s",
+            )
+
+        return EngineResponse(
+            reply="Cancelled — no files or settings were modified.",
+            spoken_summary="Cancelled.",
+            intent=pending.intent,
+            tier_used="tier1",
+            confidence=pending.confidence,
+            gate_action="confirm",
+            router_ms=float(pending.payload.get("router_ms", 0.0)),
+            total_ms=(time.perf_counter() - t_start) * 1000.0,
+            badge_text="Cancelled",
+        )

@@ -124,15 +124,32 @@ All classification metrics below were measured on the held-out stratified **10% 
 
 ## Portable Local Setup & Verification
 
-`run_jude.ps1` keeps virtual environments, caches, temporary files, and Ollama model paths self-contained inside the project folder:
+`run_jude.ps1` and `launch_jude.bat` keep virtual environments, caches, temporary files, SQLite memory, backups, and Ollama model paths self-contained inside the project folder:
 
 ```powershell
-# Verify Python venv, environment isolation, imports, and local Ollama 'jude' model
+# Launch the floating Baymax desktop widget (or double-click launch_jude.bat)
+.\run_jude.ps1
+
+# Verify environment isolation + Tier 1 ONNX router
+.\run_jude.ps1 -m app.main --check
+
+# Run a single command in CLI mode
+.\run_jude.ps1 -m app.main --once "What time is it?"
+
+# Verify full environment, imports, and local Ollama 'jude' model
 .\run_jude.ps1 .\verify_env.py
 
-# Run startup isolation check
-.\run_jude.ps1
+# Run Phase 2 automated test suite
+.\run_jude.ps1 .\tests\test_phase2.py
 ```
+
+---
+
+## Floating Baymax Desktop Widget & Safety Controls
+
+- **Pure PySide6 `QPainter` Avatar (`0 MB` external images):** Renders a HiDPI glossy porcelain-white capsule head (`●—●`) with periodic eye blinking, smooth floating bob, and color-coded status ring (`IDLE` cyan, `Tier 1` emerald, `Tier 2` violet rotating arc, `Confirm` amber, `Speaking` sky-blue, `Error` red).
+- **Expandable HUD & Tray Controls:** Click Baymax to expand/collapse the chat HUD, drag to reposition anywhere on screen, or toggle **Voice On / Muted** (local Windows SAPI5 `pyttsx3`) from the dock pill, HUD header, or system tray menu.
+- **Safety-by-Design Confirmation Gate:** File compression (`COMPRESS_FILES`), Word document edits (`EDIT_DOCUMENT` with editable before/after diff preview + timestamped snapshots saved to `backups/`), and medium-confidence (`0.55–0.80`) Tier 1 actions always pause for explicit confirmation before modifying anything.
 
 ---
 
