@@ -263,6 +263,53 @@ AGENT_TOOL_SCHEMAS: list[dict] = [
     },
 ]
 
+_TOOL_BY_NAME: dict[str, dict] = {
+    schema["function"]["name"]: schema for schema in AGENT_TOOL_SCHEMAS
+}
+
+_CORE_TOOLS = (
+    "open_app_or_site",
+    "close_app",
+    "list_windows",
+    "focus_window",
+    "open_terminal",
+    "navigate_files",
+    "google_search",
+    "read_active_screen",
+    "memory_save",
+    "memory_recall",
+    "memory_delete",
+)
+_WORD_TOOLS = ("read_open_word_doc", "create_word_doc", "edit_word_doc")
+_VMWARE_TOOLS = ("vmware_list_vms", "vmware_run_linux_cmd")
+
+_WORD_CTX_RE = re.compile(
+    r"\b(?:word|doc|docx|document|summary|executive|paragraph|section|highlighted|report|edit|rewrite|polish|add\s+my\s+name)\b",
+    flags=re.IGNORECASE,
+)
+_VMWARE_CTX_RE = re.compile(
+    r"\b(?:vmware|vm\b|linux|ubuntu|ssh|guest|distro|apt|systemctl|bash)\b",
+    flags=re.IGNORECASE,
+)
+_UI_CTX_RE = re.compile(
+    r"\b(?:ui|button|buttons|control|controls|element|elements|inspect|screen|menu)\b",
+    flags=re.IGNORECASE,
+)
+
+
+def select_tools_for_turn(user_text: str, live_ctx: str = "") -> list[dict]:
+    """Prune irrelevant Word/VMware/UI tool schemas to cut tokens and improve accuracy."""
+    combined = f"{user_text}\n{live_ctx}"
+    names: list[str] = list(_CORE_TOOLS)
+    if "Open Word Doc:" in live_ctx or _WORD_CTX_RE.search(combined):
+        names.extend(_WORD_TOOLS)
+    if "vmware" in live_ctx.lower() or _VMWARE_CTX_RE.search(combined):
+        names.extend(_VMWARE_TOOLS)
+    if _UI_CTX_RE.search(user_text):
+        names.append("inspect_ui_elements")
+    return [_TOOL_BY_NAME[n] for n in names if n in _TOOL_BY_NAME]
+
+
 _TOOL_CALL_TAG_RE = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", flags=re.DOTALL)
 
 
@@ -504,12 +551,20 @@ def run_agent_turn(
 
     all_sources: list[tuple[str, str]] = []
     tools_used: list[str] = []
+    opened_targets: list[str] = []
+    turn_tools = select_tools_for_turn(user_text, live_ctx)
 
     for _ in range(max_steps):
-        resp = ollama.chat_with_tools(messages=messages, tools=AGENT_TOOL_SCHEMAS)
+        resp = ollama.chat_with_tools(messages=messages, tools=turn_tools)
         if not resp.get("ok"):
             err = resp.get("error", "Tier 2 agent failed.")
-            return {"reply": err, "sources": all_sources, "pending_spec": None, "tools_used": tools_used}
+            return {
+                "reply": err,
+                "sources": all_sources,
+                "pending_spec": None,
+                "tools_used": tools_used,
+                "opened_targets": opened_targets,
+            }
 
         msg = resp["message"]
         tool_calls = _extract_tool_calls(msg)
@@ -522,7 +577,13 @@ def run_agent_turn(
                 src_lines = "\n".join(f"- [{t}]({u})" for t, u in all_sources[:3])
                 if "Sources:" not in reply:
                     reply = f"{reply}\n\nSources:\n{src_lines}"
-            return {"reply": reply, "sources": all_sources, "pending_spec": None, "tools_used": tools_used}
+            return {
+                "reply": reply,
+                "sources": all_sources,
+                "pending_spec": None,
+                "tools_used": tools_used,
+                "opened_targets": opened_targets,
+            }
 
         messages.append(msg)
         for tool_name, tool_args in tool_calls:
@@ -535,6 +596,13 @@ def run_agent_turn(
                 memory_db_path=memory_db_path,
                 backups_dir=backups_dir,
             )
+            if tool_name == "open_app_or_site":
+                try:
+                    parsed_res = json.loads(result_json)
+                    if parsed_res.get("ok"):
+                        opened_targets.append(str(tool_args.get("target") or "").strip())
+                except Exception:
+                    pass
             all_sources.extend(new_sources)
             if pending_spec is not None:
                 return {
@@ -542,6 +610,7 @@ def run_agent_turn(
                     "sources": all_sources,
                     "pending_spec": pending_spec,
                     "tools_used": tools_used,
+                    "opened_targets": opened_targets,
                 }
             messages.append({"role": "tool", "content": result_json})
 
@@ -553,4 +622,10 @@ def run_agent_turn(
     if all_sources and "Sources:" not in reply:
         src_lines = "\n".join(f"- [{t}]({u})" for t, u in all_sources[:3])
         reply = f"{reply}\n\nSources:\n{src_lines}"
-    return {"reply": reply, "sources": all_sources, "pending_spec": None, "tools_used": tools_used}
+    return {
+        "reply": reply,
+        "sources": all_sources,
+        "pending_spec": None,
+        "tools_used": tools_used,
+        "opened_targets": opened_targets,
+    }

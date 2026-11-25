@@ -383,6 +383,73 @@ def test_hud_two_row_layout_and_tts_markdown_strip() -> None:
     print("[OK] 2-row unclipped HUD layout & natural speech markdown filter passed")
 
 
+def test_real_chat_fixes_routing_explorer_and_speech() -> None:
+    from app.engine import JudeEngine
+    from app.tier1.actions import open_target, plan_close_app
+    from app.tools.registry import select_tools_for_turn
+    from app.voice.listener import normalize_wake_word
+    from app.voice.tts import normalize_for_speech
+
+    # 1. Wake-word 'Jude' must NOT open workspace root when user asks to open Chrome/Word/WhatsApp
+    ok_c, msg_c = open_target("Jude, open Chrome for me.", dry_run=True)
+    assert ok_c and "Google Chrome" in msg_c, (ok_c, msg_c)
+    ok_w, msg_w = open_target("Jude, open Word", dry_run=True)
+    assert ok_w and "Microsoft Word" in msg_w, (ok_w, msg_w)
+    ok_wa, msg_wa = open_target("Open WhatsApp, Jude.", dry_run=True)
+    assert ok_wa and "WhatsApp" in msg_wa, (ok_wa, msg_wa)
+
+    # 2. Explorer folder windows (CabinetWClass) can be closed safely, Shell_TrayWnd stays protected
+    fake_windows = [
+        {"hwnd": 101, "title": "Taskbar", "process": "explorer.exe", "class_name": "Shell_TrayWnd", "pid": 400},
+        {"hwnd": 202, "title": "Downloads", "process": "explorer.exe", "class_name": "CabinetWClass", "pid": 400},
+        {"hwnd": 303, "title": "WhatsApp", "process": "WhatsApp.exe", "class_name": "ApplicationFrameWindow", "pid": 500},
+    ]
+    with patch("app.tier1.actions.list_open_windows", return_value=fake_windows):
+        plan_fm = plan_close_app("file manager")
+        assert plan_fm["ok"] and plan_fm["hwnd"] == 202, plan_fm
+        plan_wa = plan_close_app("WhatsApp")
+        assert plan_wa["ok"] and plan_wa["hwnd"] == 303, plan_wa
+
+    with patch("app.tier1.actions.list_open_windows", return_value=[fake_windows[0]]):
+        blocked_tray = plan_close_app("Taskbar")
+        assert not blocked_tray["ok"] and "protected system process" in blocked_tray["error"], blocked_tray
+
+    # 3. 'Open WhatsApp' + 'Close it' + 'Who made you?' + Word edit routing
+    tmp = _make_temp_dir("chat_fixes")
+    try:
+        engine = JudeEngine(
+            memory_db_path=tmp / "memory.db",
+            backups_dir=tmp / "backups",
+            feedback_path=tmp / "feedback.jsonl",
+        )
+        who = engine.process("Jude, who made you?")
+        assert who.tier_used == "tier1" and "J.U.D.E." in who.reply and "Alibaba" not in who.reply, who
+
+        with patch("app.engine.open_target", return_value=(True, "Opened WhatsApp.")), patch(
+            "app.tier1.actions.list_open_windows", return_value=fake_windows
+        ):
+            op = engine.process("Open WhatsApp, Jude.")
+            assert op.tier_used == "tier1" and "WhatsApp" in op.reply, op
+            cl = engine.process("Close it.")
+            assert cl.tier_used == "pending" and cl.pending is not None and cl.pending.kind == "close_app", cl
+            assert cl.pending.payload["hwnd"] == 303
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    # 4. Speech sanitization removes .undo.txt timestamps & backslashes
+    spoken = normalize_for_speech("Updated `RnD DPG.docx` cleanly. Undo snapshot saved to `RnD DPG_20261126_013527.undo.txt`.")
+    assert ".undo.txt" not in spoken and "20261126" not in spoken and ".docx" not in spoken, spoken
+    assert "RnD DPG document" in spoken, spoken
+
+    # 5. Whisper near-miss recovery + dynamic tool pruning
+    assert normalize_wake_word("Jude, open Wordset for me.") == "Jude, open WhatsApp for me."
+    core_names = {t["function"]["name"] for t in select_tools_for_turn("Open Chrome for me", "")}
+    assert "vmware_run_linux_cmd" not in core_names and "create_word_doc" not in core_names, core_names
+    word_names = {t["function"]["name"] for t in select_tools_for_turn("Read executive summary", "Open Word Doc: report.docx")}
+    assert "read_open_word_doc" in word_names and "vmware_run_linux_cmd" not in word_names, word_names
+    print("[OK] Real-world voice chat bug fixes & routing tests passed")
+
+
 def main() -> int:
     configure_d_drive_env()
     assert_no_c_drive_leakage()
@@ -392,6 +459,7 @@ def main() -> int:
     test_screen_reader_cap_password_mask_and_vmware_ocr()
     test_vmware_linux_bridge_and_confirmation_gate()
     test_hud_two_row_layout_and_tts_markdown_strip()
+    test_real_chat_fixes_routing_explorer_and_speech()
     print("\nALL J.U.D.E. V2 AGENT TESTS PASSED!")
     return 0
 

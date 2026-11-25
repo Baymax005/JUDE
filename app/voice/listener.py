@@ -14,9 +14,10 @@ from PySide6.QtCore import QObject, Signal
 from app.config import AUDIO_MODELS_DIR
 
 _INITIAL_PROMPT = (
-    "Jude, Hey Jude, Hello Jude. Commands for Jude: remember, recall memory, "
-    "open folder, compress zip, system status, explain screen, edit Word document, "
-    "search the web, tell me about yourself."
+    "Jude, Hey Jude, Hello Jude. Commands for Jude: open WhatsApp, open Chrome, "
+    "open Google, open Microsoft Word, open terminal, close app, close File Explorer, "
+    "remember, recall memory, system status, explain screen, read highlighted text, "
+    "edit Word document, VMware Ubuntu Linux."
 )
 
 _HALLUCINATION_PHRASES = {
@@ -38,9 +39,11 @@ _HALLUCINATION_PHRASES = {
 
 
 def normalize_wake_word(text: str) -> str:
-    """Correct common acoustic near-misses for the 'Jude' wake word."""
+    """Correct common Whisper acoustic near-misses for J.U.D.E. and desktop app names."""
     fixed = re.sub(r"\b(hey|hi|hello)\s+(?:dude|jood|june|jewel|judi)\b", r"\1 Jude", text, flags=re.IGNORECASE)
     fixed = re.sub(r"^(?:dude|jood)\b", "Jude", fixed, flags=re.IGNORECASE)
+    fixed = re.sub(r"\b(?:wordset|word\s+set|what['’]s\s+app)\b", "WhatsApp", fixed, flags=re.IGNORECASE)
+    fixed = re.sub(r"\b(open|launch|close|focus)\s+(?:what\s+app|concept)\b", r"\1 WhatsApp", fixed, flags=re.IGNORECASE)
     return fixed
 
 
@@ -121,6 +124,7 @@ class VoiceListener(QObject):
         sample_rate = 16000
         block_size = 1600  # 100 ms frames
         noise_floor = 0.004
+        consecutive_errors = 0
 
         while not self._stop_event.is_set():
             if not self._should_listen():
@@ -135,6 +139,7 @@ class VoiceListener(QObject):
                     dtype="float32",
                     blocksize=block_size,
                 ) as stream:
+                    consecutive_errors = 0
                     in_speech = False
                     speech_hits = 0
                     silence_frames = 0
@@ -151,7 +156,7 @@ class VoiceListener(QObject):
                             if len(pre_roll) > 6:  # 600 ms pre-roll protects word starts
                                 pre_roll.pop(0)
 
-                            thresh = max(0.015, noise_floor * 3.0)
+                            thresh = max(0.011, noise_floor * 2.6)
                             if rms >= thresh:
                                 speech_hits += 1
                                 if speech_hits >= 2:
@@ -164,14 +169,14 @@ class VoiceListener(QObject):
                                 noise_floor = 0.92 * noise_floor + 0.08 * min(rms, 0.02)
                         else:
                             frames.append(chunk)
-                            cont_thresh = max(0.010, noise_floor * 2.1)
+                            cont_thresh = max(0.008, noise_floor * 1.9)
                             if rms < cont_thresh:
                                 silence_frames += 1
                             else:
                                 silence_frames = 0
 
-                            # Stop after ~1.1s silence (11 frames) or 12s max (120 frames)
-                            if silence_frames >= 11 or len(frames) >= 120:
+                            # Stop after ~1.5s silence (15 frames) or 14s max (140 frames)
+                            if silence_frames >= 15 or len(frames) >= 140:
                                 clip = np.concatenate(frames)
                                 in_speech = False
                                 speech_hits = 0
@@ -180,25 +185,29 @@ class VoiceListener(QObject):
 
                                 dur_sec = len(clip) / float(sample_rate)
                                 peak_rms = float(np.sqrt(np.mean(clip * clip)))
-                                if dur_sec >= 0.45:
+                                if dur_sec >= 0.40:
                                     text = self._transcribe_clip(model, clip, peak_rms)
                                     if text:
                                         self.utterance_ready.emit(text)
                                         break
             except Exception as exc:
-                self.status_changed.emit(f"Mic paused: {exc}")
-                time.sleep(2.0)
+                consecutive_errors += 1
+                if consecutive_errors >= 2:
+                    self.status_changed.emit(f"Mic paused: {exc}")
+                    time.sleep(2.0)
+                else:
+                    time.sleep(0.6)
 
     def _transcribe_clip(self, model, clip: np.ndarray, peak_rms: float) -> str:
         kwargs: dict = {
             "language": "en",
-            "beam_size": 2,
+            "beam_size": 3,
             "vad_filter": True,
             "initial_prompt": _INITIAL_PROMPT,
             "condition_on_previous_text": False,
         }
         if "hotwords" in self._transcribe_params:
-            kwargs["hotwords"] = "Jude"
+            kwargs["hotwords"] = "Jude WhatsApp Chrome Google Word Explorer Terminal VMware"
 
         segments, _info = model.transcribe(clip, **kwargs)
         parts: list[str] = []
@@ -206,7 +215,7 @@ class VoiceListener(QObject):
         for seg in segments:
             no_speech = getattr(seg, "no_speech_prob", 0.0)
             avg_lp = getattr(seg, "avg_logprob", 0.0)
-            if no_speech > 0.55 or avg_lp < -0.90:
+            if no_speech > 0.72 or avg_lp < -1.15:
                 continue
             txt = seg.text.strip()
             if txt:
@@ -219,9 +228,9 @@ class VoiceListener(QObject):
 
         mean_lp = sum(logprobs) / len(logprobs) if logprobs else 0.0
         low_text = full_text.lower()
-        if low_text in _HALLUCINATION_PHRASES and (peak_rms < 0.030 or mean_lp < -0.45):
+        if low_text in _HALLUCINATION_PHRASES and (peak_rms < 0.025 or mean_lp < -0.55):
             return ""
-        if len(full_text.split()) <= 2 and mean_lp < -0.65:
+        if len(full_text.split()) <= 2 and mean_lp < -0.80:
             return ""
 
         return normalize_wake_word(full_text)

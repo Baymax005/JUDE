@@ -23,6 +23,7 @@ from app.tier1.actions import (
     execute_compression,
     get_system_info,
     open_target,
+    plan_close_app,
     plan_compression,
 )
 from app.tier1.memory import (
@@ -154,6 +155,12 @@ _QUICK_SOCIAL_MAP: list[tuple[set[str], str]] = [
     ),
     (
         {
+            "who made you", "who created you", "who built you", "who developed you", "who is your creator",
+        },
+        "I am J.U.D.E., a local-first Windows 11 desktop AI assistant built as a custom two-tier AI project running locally on your PC.",
+    ),
+    (
+        {
             "can you hear me", "hey jude can you hear me", "jude can you hear me",
             "are you listening", "are you there", "you there", "testing",
         },
@@ -176,8 +183,10 @@ _QUICK_SOCIAL_MAP: list[tuple[set[str], str]] = [
 def _match_quick_social(cleaned: str) -> str | None:
     norm = re.sub(r"[^\w\s']", "", cleaned.lower()).strip()
     norm = " ".join(norm.split())
+    stripped = re.sub(r"^(?:(?:hey|hi|hello)\s+)?jude\s+", "", norm).strip()
+    stripped = re.sub(r"\s+jude$", "", stripped).strip()
     for phrases, reply in _QUICK_SOCIAL_MAP:
-        if norm in phrases:
+        if norm in phrases or stripped in phrases:
             return reply
     return None
 
@@ -195,9 +204,18 @@ _DRIVE_OPEN_RE = re.compile(
     r"^(?:(?:hey\s+)?jude[\s,]+)?(?:please\s+)?(?:open|take\s+me\s+to|go\s+(?:to|in))\s+(?:local\s+disk\s+[a-z]|[a-z]\s+drive|drive\s+[a-z])\s*[.?!]?$",
     flags=re.IGNORECASE,
 )
+_OPEN_APP_RE = re.compile(
+    r"^(?:(?:hey|hi|hello)\s+)?jude[\s,:-]+(?:please\s+|can\s+you\s+)?(?:open|launch|start)\s+.+$"
+    r"|^(?:please\s+|can\s+you\s+)?(?:open|launch|start)\s+.+$",
+    flags=re.IGNORECASE,
+)
+_CLOSE_APP_RE = re.compile(
+    r"^(?:(?:(?:hey|hi|hello)\s+)?jude[\s,:-]+)?(?:please\s+|can\s+you\s+)?close\s+(.+?)[.?!]*$",
+    flags=re.IGNORECASE,
+)
 _WORD_EDIT_RE = re.compile(
-    r"\bword\s+doc(?:ument)?\b.*\b(?:fill|edit|rewrite|polish|update|change|insert|fix|shorten)\b"
-    r"|\b(?:fill|edit|rewrite|polish|update|change|insert|fix|shorten)\b.*\bword\s+doc(?:ument)?\b",
+    r"\bword\s+(?:doc(?:ument)?|file)\b.*\b(?:fill|edit|rewrite|polish|update|change|insert|fix|shorten|add|type|put|append|write)\b"
+    r"|\b(?:fill|edit|rewrite|polish|update|change|insert|fix|shorten|add|type|put|append|write)\b.*\b(?:word\s+(?:doc(?:ument)?|file)|highlighted\s+(?:area|text|section|part)|on\s+the\s+highlighted)\b",
     flags=re.IGNORECASE,
 )
 # Requests mentioning multi-step PC/agent concepts always belong to the Tier 2 Tool-Calling Agent
@@ -217,10 +235,18 @@ def _match_deterministic_guard(cleaned: str) -> tuple[str, str] | None:
     if _MEMORY_DELETE_RE.search(low):
         return ("DELETE_MEMORY", "tier1")
     if ("highlight" in low or "selected" in low) and "read" in low and not any(
-        w in low for w in ("edit", "rewrite", "polish", "shorten", "fix")
+        w in low for w in ("edit", "rewrite", "polish", "shorten", "fix", "add", "type", "insert", "put")
     ):
         return ("READ_SELECTION", "tier1")
     if _DRIVE_OPEN_RE.search(low):
+        return ("OPEN_TARGET", "tier1")
+    if _CLOSE_APP_RE.match(cleaned):
+        return ("CLOSE_APP_DIRECT", "tier2")
+    if (
+        _OPEN_APP_RE.match(cleaned)
+        and not re.search(r"\b(?:terminal|powershell|cmd|create|new\s+word|search|vmware|linux|ubuntu|compress|zip|archive)\b", low)
+        and open_target(cleaned, dry_run=True)[0]
+    ):
         return ("OPEN_TARGET", "tier1")
     if _WORD_EDIT_RE.search(low) and not re.search(r"\b(?:create|new|make)\b", low):
         return ("EDIT_DOCUMENT", "tier2")
@@ -253,6 +279,7 @@ class JudeEngine:
             self.using_onnx = False
 
         self._pending: dict[str, PendingConfirmation] = {}
+        self._last_opened_target: str = ""
 
     @property
     def router_status(self) -> str:
@@ -288,11 +315,40 @@ class JudeEngine:
         if intent == "OPEN_TARGET":
             ok, msg = open_target(text)
             if ok:
+                self._remember_opened_target(msg)
                 log_activity("open_target", text[:120], msg, db_path=self.memory_db_path)
             return msg
         if intent == "SYSTEM_INFO":
             return get_system_info(text)
         return f"Unsupported Tier 1 action: {intent}"
+
+    def _remember_opened_target(self, open_msg: str) -> None:
+        m = re.match(r"^(?:Launched|Opened)\s+`?([^`]+?)`?\.?$", open_msg.strip(), flags=re.I)
+        if m:
+            raw = m.group(1).strip()
+            if raw.lower().startswith("google chrome"):
+                self._last_opened_target = "chrome"
+            elif raw.lower().startswith("microsoft word"):
+                self._last_opened_target = "word"
+            elif raw.lower().startswith("whatsapp"):
+                self._last_opened_target = "whatsapp"
+            elif raw.lower().endswith("\\") or "\\" in raw:
+                self._last_opened_target = "file manager"
+            else:
+                self._last_opened_target = raw.split(" in File Explorer", 1)[0].strip()
+
+    @staticmethod
+    def _clean_open_spoken(open_msg: str) -> str:
+        low = open_msg.lower()
+        if "in file explorer" in low:
+            m = re.search(r"([A-Za-z]):\\", open_msg)
+            return f"Opened {m.group(1).upper()} drive." if m else "Opened File Explorer."
+        if "\\" in open_msg:
+            m = re.search(r"`([^`]+)`", open_msg)
+            if m:
+                name = Path(m.group(1)).name or m.group(1)
+                return f"Opened {name}."
+        return _spoken_excerpt(open_msg)
 
     def _run_tier2_agent(
         self,
@@ -349,6 +405,9 @@ class JudeEngine:
             )
 
         reply = agent_out.get("reply") or "Done."
+        for opened in agent_out.get("opened_targets") or []:
+            if opened:
+                self._last_opened_target = opened
         tools_used = agent_out.get("tools_used") or []
         badge = (
             f"Agent · {len(tools_used)} tool(s) · {total_ms / 1000:.2f} s"
@@ -418,9 +477,14 @@ class JudeEngine:
             if guard_tier == "tier1":
                 reply = self._run_tier1_action(guard_intent, cleaned, target_hwnd=target_hwnd)
                 total_ms = (time.perf_counter() - t_start) * 1000.0
+                spoken = (
+                    self._clean_open_spoken(reply)
+                    if guard_intent == "OPEN_TARGET"
+                    else _spoken_excerpt(reply)
+                )
                 return EngineResponse(
                     reply=reply,
-                    spoken_summary=_spoken_excerpt(reply),
+                    spoken_summary=spoken,
                     intent=guard_intent,
                     tier_used="tier1",
                     confidence=1.0,
@@ -428,6 +492,66 @@ class JudeEngine:
                     router_ms=0.1,
                     total_ms=total_ms,
                     badge_text=f"Tier 1 · Fast · {total_ms:.1f} ms",
+                )
+            if guard_intent == "CLOSE_APP_DIRECT":
+                m = _CLOSE_APP_RE.match(cleaned)
+                raw_target = (m.group(1) if m else "").strip()
+                raw_target = re.sub(r"[\s,]+jude$", "", raw_target, flags=re.I).strip()
+                if raw_target.lower() in {"it", "that", "this", "this app", "that app", "the app", "that window", "this window"}:
+                    raw_target = self._last_opened_target
+                if not raw_target:
+                    total_ms = (time.perf_counter() - t_start) * 1000.0
+                    msg = "Tell me which open app or window you want me to close."
+                    return EngineResponse(
+                        reply=msg,
+                        spoken_summary=msg,
+                        intent="CLOSE_APP",
+                        tier_used="tier2",
+                        confidence=1.0,
+                        gate_action="direct",
+                        router_ms=0.1,
+                        total_ms=total_ms,
+                        badge_text=f"Agent · Clarify · {total_ms:.1f} ms",
+                    )
+                plan = plan_close_app(raw_target)
+                total_ms = (time.perf_counter() - t_start) * 1000.0
+                if not plan.get("ok"):
+                    err = plan.get("error", f"Couldn't find an open window for {raw_target}.")
+                    return EngineResponse(
+                        reply=err,
+                        spoken_summary=_spoken_excerpt(err),
+                        intent="CLOSE_APP",
+                        tier_used="tier2",
+                        confidence=1.0,
+                        gate_action="direct",
+                        router_ms=0.1,
+                        total_ms=total_ms,
+                        badge_text=f"Agent · Close · {total_ms:.1f} ms",
+                    )
+                pid = uuid.uuid4().hex[:10]
+                pending = PendingConfirmation(
+                    id=pid,
+                    kind="close_app",
+                    title=f"Confirm Closing {plan['process']}",
+                    summary=f"Send a close request to window `{plan['title']}` ({plan['process']})?",
+                    intent="CLOSE_APP",
+                    confidence=1.0,
+                    target_path=f"{plan['title']} ({plan['process']})",
+                    payload={**plan, "original_text": cleaned, "router_ms": 0.1},
+                )
+                self._pending[pid] = pending
+                msg = f"Ready to close `{plan['title']}`. Confirm to continue."
+                return EngineResponse(
+                    reply=msg,
+                    spoken_summary=f"Confirm closing {plan['process'].replace('.exe', '')}.",
+                    intent="CLOSE_APP",
+                    tier_used="pending",
+                    confidence=1.0,
+                    gate_action="confirm",
+                    router_ms=0.1,
+                    total_ms=total_ms,
+                    badge_text=f"Agent · Confirm ({total_ms:.0f} ms)",
+                    pending=pending,
                 )
         else:
             route = self.router.predict(cleaned)
@@ -599,7 +723,7 @@ class JudeEngine:
             total_ms = (time.perf_counter() - t_start) * 1000.0
             return EngineResponse(
                 reply=reply,
-                spoken_summary=_spoken_excerpt(reply),
+                spoken_summary="Your zip archive has been created.",
                 intent=pending.intent,
                 tier_used="tier1",
                 confidence=pending.confidence,
@@ -622,11 +746,12 @@ class JudeEngine:
                 after_text=final_text,
                 db_path=self.memory_db_path,
             )
+            doc_stem = Path(pending.payload.get("doc_name", "Word")).stem or "Word"
             log_activity("word_edit", pending.payload.get("doc_name", "Word"), "", db_path=self.memory_db_path)
             total_ms = (time.perf_counter() - t_start) * 1000.0
             return EngineResponse(
                 reply=reply,
-                spoken_summary=_spoken_excerpt(reply),
+                spoken_summary=f"Your Word document {doc_stem} has been updated, and an undo backup was saved.",
                 intent=pending.intent,
                 tier_used="tier2",
                 confidence=pending.confidence,
@@ -642,11 +767,12 @@ class JudeEngine:
                 edited_content=edited_after_text,
                 open_after=True,
             )
+            doc_stem = Path(pending.target_path).stem or "document"
             log_activity("word_create", Path(pending.target_path).name, "", db_path=self.memory_db_path)
             total_ms = (time.perf_counter() - t_start) * 1000.0
             return EngineResponse(
                 reply=reply,
-                spoken_summary=_spoken_excerpt(reply),
+                spoken_summary=f"Created and opened {doc_stem}.",
                 intent=pending.intent,
                 tier_used="tier2",
                 confidence=pending.confidence,
@@ -658,11 +784,12 @@ class JudeEngine:
 
         if pending.kind == "close_app":
             reply = execute_close_app(pending.payload)
+            proc_clean = str(pending.payload.get("process", "application")).replace(".exe", "")
             log_activity("close_app", pending.payload.get("process", "app"), "", db_path=self.memory_db_path)
             total_ms = (time.perf_counter() - t_start) * 1000.0
             return EngineResponse(
                 reply=reply,
-                spoken_summary=_spoken_excerpt(reply),
+                spoken_summary=f"Closed {proc_clean}.",
                 intent=pending.intent,
                 tier_used="tier2",
                 confidence=pending.confidence,

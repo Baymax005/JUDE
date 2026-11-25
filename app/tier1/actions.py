@@ -165,13 +165,23 @@ _FOLDER_ALIASES: dict[str, Path] = {
     "pictures": Path.home() / "Pictures",
     "videos": Path.home() / "Videos",
     "music": Path.home() / "Music",
-    "jude": ROOT_DIR,
+    "jude folder": ROOT_DIR,
+    "jude project": ROOT_DIR,
 }
 
 _DISALLOWED_EXEC_EXTS = {".exe", ".bat", ".cmd", ".ps1", ".vbs", ".msi", ".com"}
 
 
-def _extract_path_candidate(text: str) -> Path | None:
+def _strip_wake_word(text: str) -> str:
+    """Remove leading/trailing J.U.D.E. wake words and polite filler before target parsing."""
+    s = " ".join((text or "").strip().split())
+    s = re.sub(r"^(?:(?:hey|hi|hello)\s+)?jude[\s,:-]+", "", s, flags=re.IGNORECASE)
+    s = re.sub(r"[\s,]+jude[.?!]*$", "", s, flags=re.IGNORECASE)
+    s = re.sub(r"(?:\s+(?:for\s+me|right\s+now|now|please))+[.?!]*$", "", s, flags=re.IGNORECASE)
+    return s.strip()
+
+
+def _extract_path_candidate(text: str, allow_aliases: bool = True) -> Path | None:
     """Extract an explicit Windows path or user-folder-relative path from text."""
     # Explicit drive path (e.g. D:\folder\sub or C:\Users\...)
     drive_match = re.search(r"([A-Za-z]:\\[^\n\"'<>|*?]+)", text)
@@ -192,11 +202,14 @@ def _extract_path_candidate(text: str) -> Path | None:
             if cand.exists():
                 return cand
 
+    if not allow_aliases:
+        return None
+
     # Known user folder + optional subfolder (e.g. "Downloads\Assignments")
     low = text.lower()
     for alias, base_dir in _FOLDER_ALIASES.items():
-        if alias in low and base_dir.exists():
-            sub_match = re.search(rf"{alias}[\\/]([^\s\"'<>|*?]+)", text, flags=re.I)
+        if re.search(rf"\b{re.escape(alias)}\b", low) and base_dir.exists():
+            sub_match = re.search(rf"{re.escape(alias)}[\\/]([^\s\"'<>|*?]+)", text, flags=re.I)
             if sub_match:
                 sub = base_dir / sub_match.group(1).strip(".,;!?")
                 if sub.exists():
@@ -214,19 +227,21 @@ _DRIVE_PHRASE_RE = re.compile(
 
 def open_target(text: str, dry_run: bool = False) -> tuple[bool, str]:
     """Open a whitelisted app/settings URI, drive root, or existing folder/document safely."""
-    low = text.lower()
+    cleaned_text = _strip_wake_word(text)
+    low = cleaned_text.lower()
 
-    # Check explicit existing path first if a drive path or subfolder is named
-    path_cand = _extract_path_candidate(text)
-    if path_cand is not None and (":" in text or "\\" in text or "/" in text or any(a in low for a in _FOLDER_ALIASES)):
-        if path_cand.is_file() and path_cand.suffix.lower() in _DISALLOWED_EXEC_EXTS:
-            return False, f"Blocked launching executable file directly for safety: {path_cand.name}"
-        if not dry_run:
-            os.startfile(str(path_cand))
-        return True, f"Opened `{path_cand}`."
+    # 1. Explicit drive/slash path first
+    if ":" in cleaned_text or "\\" in cleaned_text or "/" in cleaned_text:
+        path_cand = _extract_path_candidate(cleaned_text, allow_aliases=False)
+        if path_cand is not None:
+            if path_cand.is_file() and path_cand.suffix.lower() in _DISALLOWED_EXEC_EXTS:
+                return False, f"Blocked launching executable file directly for safety: {path_cand.name}"
+            if not dry_run:
+                os.startfile(str(path_cand))
+            return True, f"Opened `{path_cand}`."
 
-    # Check spoken drive requests ("local disk D", "D drive", "drive C")
-    drive_match = _DRIVE_PHRASE_RE.search(text)
+    # 2. Spoken drive requests ("local disk D", "D drive", "drive C")
+    drive_match = _DRIVE_PHRASE_RE.search(cleaned_text)
     if drive_match:
         letter = (drive_match.group(1) or drive_match.group(2) or "").upper()
         drive_root = Path(f"{letter}:\\")
@@ -236,6 +251,7 @@ def open_target(text: str, dry_run: bool = False) -> tuple[bool, str]:
             return True, f"Opened `{drive_root}` in File Explorer."
         return False, f"Drive `{letter}:` is not available on this PC."
 
+    # 3. URI / web targets BEFORE folder aliases (WhatsApp, Google, YouTube)
     for keywords, uri_target, display_name, fallback_url in _URI_OR_WEB_TARGETS:
         if any(re.search(rf"\b{re.escape(kw)}\b", low) for kw in keywords):
             if not dry_run:
@@ -248,6 +264,7 @@ def open_target(text: str, dry_run: bool = False) -> tuple[bool, str]:
                         webbrowser.open(uri_target)
             return True, f"Opened {display_name}."
 
+    # 4. Desktop applications BEFORE folder aliases
     for keywords, target_cmd, display_name in _APP_TARGETS:
         if any(re.search(rf"\b{re.escape(kw)}\b", low) for kw in keywords):
             if not dry_run:
@@ -262,10 +279,14 @@ def open_target(text: str, dry_run: bool = False) -> tuple[bool, str]:
                         subprocess.Popen([target_cmd], shell=False)
             return True, f"Launched {display_name}."
 
-    if path_cand is not None:
+    # 5. Folder aliases (Downloads, Desktop, Documents, etc.)
+    alias_cand = _extract_path_candidate(cleaned_text, allow_aliases=True)
+    if alias_cand is not None:
+        if alias_cand.is_file() and alias_cand.suffix.lower() in _DISALLOWED_EXEC_EXTS:
+            return False, f"Blocked launching executable file directly for safety: {alias_cand.name}"
         if not dry_run:
-            os.startfile(str(path_cand))
-        return True, f"Opened `{path_cand}`."
+            os.startfile(str(alias_cand))
+        return True, f"Opened `{alias_cand}`."
 
     return False, "I couldn't identify a valid local folder, file, or supported Windows app in that request."
 
@@ -311,7 +332,7 @@ def open_terminal(path: str = "", dry_run: bool = False) -> tuple[bool, str]:
 
 
 def list_open_windows() -> list[dict]:
-    """Return visible top-level non-JUDE windows with hwnd, title, and process name."""
+    """Return visible top-level non-JUDE windows with hwnd, title, process, and class_name."""
     own_pid = os.getpid()
     windows: list[dict] = []
 
@@ -326,9 +347,19 @@ def list_open_windows() -> list[dict]:
             if pid == own_pid or pid <= 0:
                 return True
             proc_name = psutil.Process(pid).name()
+            class_name = win32gui.GetClassName(hwnd) or ""
         except Exception:
             proc_name = "unknown"
-        windows.append({"hwnd": int(hwnd), "title": title, "process": proc_name, "pid": int(pid)})
+            class_name = ""
+        windows.append(
+            {
+                "hwnd": int(hwnd),
+                "title": title,
+                "process": proc_name,
+                "class_name": class_name,
+                "pid": int(pid),
+            }
+        )
         return True
 
     win32gui.EnumWindows(_cb, None)
@@ -337,7 +368,7 @@ def list_open_windows() -> list[dict]:
 
 def focus_window(query: str) -> tuple[bool, str]:
     """Focus and restore a matching visible window by title or process name."""
-    q = " ".join((query or "").strip().lower().split())
+    q = " ".join(_strip_wake_word(query).lower().split())
     if not q:
         return False, "Tell me which open window you want to focus."
     windows = list_open_windows()
@@ -355,22 +386,47 @@ def focus_window(query: str) -> tuple[bool, str]:
 
 
 def plan_close_app(target: str) -> dict:
-    """Resolve a target window/app for safe user-confirmed closing (blocking system processes)."""
-    q = " ".join((target or "").strip().lower().split())
+    """Resolve a target window/app for safe user-confirmed closing (allowing Explorer folders only)."""
+    q = " ".join(_strip_wake_word(target).lower().split())
+    q = re.sub(r"^(?:my|the)\s+", "", q)
+    q = re.sub(r"\s+(?:app|application|window)$", "", q).strip()
     if not q:
         return {"ok": False, "error": "Specify which application window to close."}
 
     windows = list_open_windows()
-    matches = [
-        w for w in windows
-        if q in w["title"].lower() or q in w["process"].lower().replace(".exe", "")
-    ]
+    is_file_manager = q in {"file manager", "file explorer", "files", "explorer", "folder"}
+    if is_file_manager:
+        matches = [
+            w for w in windows
+            if w["process"].lower() == "explorer.exe" and w.get("class_name") == "CabinetWClass"
+        ]
+    else:
+        aliases = {
+            "word": ("winword", "word"),
+            "excel": ("excel",),
+            "powerpoint": ("powerpnt", "powerpoint"),
+            "chrome": ("chrome",),
+            "whatsapp": ("whatsapp",),
+            "edge": ("msedge", "edge"),
+            "terminal": ("windowsterminal", "wt", "powershell", "cmd"),
+        }
+        tokens = aliases.get(q, (q,))
+        matches = [
+            w for w in windows
+            if any(
+                tok in w["title"].lower() or tok in w["process"].lower().replace(".exe", "")
+                for tok in tokens
+            )
+        ]
+
     if not matches:
         return {"ok": False, "error": f"No open window matching `{target}` was found."}
 
     chosen = matches[0]
     proc_low = chosen["process"].lower()
-    if proc_low in _PROTECTED_PROCESSES or chosen["pid"] == os.getpid():
+    class_name = chosen.get("class_name", "")
+    is_explorer_folder = proc_low == "explorer.exe" and class_name == "CabinetWClass"
+    if (proc_low in _PROTECTED_PROCESSES and not is_explorer_folder) or chosen["pid"] == os.getpid():
         return {"ok": False, "error": f"Refusing to close protected system process `{chosen['process']}`."}
 
     return {
@@ -379,6 +435,7 @@ def plan_close_app(target: str) -> dict:
         "pid": chosen["pid"],
         "title": chosen["title"],
         "process": chosen["process"],
+        "class_name": class_name,
     }
 
 

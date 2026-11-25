@@ -16,17 +16,35 @@ from app.config import TTS_MODELS_DIR
 _FENCED_CODE_RE = re.compile(r"```.*?```", flags=re.DOTALL)
 _MD_LINK_RE = re.compile(r"\[([^\]]+)\]\([^)]+\)")
 _URL_RE = re.compile(r"https?://\S+")
+_WIN_PATH_RE = re.compile(r"\b[A-Za-z]:\\[^\s`'\"]+")
+_TIMESTAMP_TAG_RE = re.compile(r"_\d{8}_\d{6}")
+_UNDO_TAIL_RE = re.compile(r"\bUndo snapshot saved to\b.*$", flags=re.IGNORECASE)
 _JUDE_ACRONYM_RE = re.compile(r"\bJ\.U\.D\.E\.?", flags=re.IGNORECASE)
 _JUDE_CAPS_RE = re.compile(r"\bJUDE\b")
 
 
 def normalize_for_speech(text: str) -> str:
-    """Clean code blocks, markdown symbols, URLs, and 'J.U.D.E.' punctuation for natural speech."""
+    """Clean code blocks, paths, filenames, markdown symbols, and J.U.D.E. for natural speech."""
     cleaned = _FENCED_CODE_RE.sub(" I placed the code in the chat window. ", text)
     cleaned = _MD_LINK_RE.sub(r"\1", cleaned)
     cleaned = _URL_RE.sub("", cleaned)
+    cleaned = _UNDO_TAIL_RE.sub("", cleaned)
+    cleaned = _TIMESTAMP_TAG_RE.sub("", cleaned)
+    cleaned = _WIN_PATH_RE.sub(
+        lambda m: (
+            f"{m.group(0)[0].upper()} drive"
+            if len(m.group(0).rstrip("\\")) <= 2
+            else Path(m.group(0)).name
+        ),
+        cleaned,
+    )
+    cleaned = re.sub(r"\.undo\.txt\b", " backup", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\.docx?\b", " document", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\.zip\b", " zip file", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\.pdf\b", " PDF", cleaned, flags=re.IGNORECASE)
     cleaned = _JUDE_ACRONYM_RE.sub("Jude", cleaned)
     cleaned = _JUDE_CAPS_RE.sub("Jude", cleaned)
+    cleaned = cleaned.replace("_", " ")
     cleaned = re.sub(r"^\s*[-•*]+\s+", "", cleaned, flags=re.MULTILINE)
     cleaned = re.sub(r"^\s*\d+\.\s+", "", cleaned, flags=re.MULTILINE)
     cleaned = re.sub(r"[`*_#>|~]+", "", cleaned)
@@ -90,11 +108,11 @@ class VoiceSpeaker:
 
     @property
     def is_speaking_or_cooling(self) -> bool:
-        """Return True while TTS is speaking or within 0.8s after speech finishes."""
+        """Return True while TTS is speaking or within 1.1s so audio endpoints settle cleanly."""
         with self._lock:
             if self._speaking:
                 return True
-            if self._last_spoken_end > 0.0 and (time.monotonic() - self._last_spoken_end) < 0.8:
+            if self._last_spoken_end > 0.0 and (time.monotonic() - self._last_spoken_end) < 1.1:
                 return True
             return False
 
