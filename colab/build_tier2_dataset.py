@@ -2,14 +2,64 @@ from __future__ import annotations
 
 import json
 import random
-import sys
+import re
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+_COLAB_DIR = Path(__file__).resolve().parent
+_SCHEMAS_PATH = _COLAB_DIR / "jude_tool_schemas.json"
 
-from app.tools.registry import AGENT_TOOL_SCHEMAS, select_tools_for_turn
+_CORE_TOOLS = (
+    "open_app_or_site",
+    "close_app",
+    "list_windows",
+    "focus_window",
+    "window_control",
+    "open_terminal",
+    "navigate_files",
+    "google_search",
+    "read_active_screen",
+    "memory_save",
+    "memory_recall",
+    "memory_delete",
+)
+_WORD_TOOLS = ("read_open_word_doc", "create_word_doc", "edit_word_doc")
+_VMWARE_TOOLS = ("vmware_list_vms", "vmware_run_linux_cmd")
+
+_WORD_CTX_RE = re.compile(
+    r"\b(?:word|doc|docx|document|summary|executive|paragraph|section|highlighted|report|edit|rewrite|polish|add\s+my\s+name)\b",
+    flags=re.IGNORECASE,
+)
+_VMWARE_CTX_RE = re.compile(
+    r"\b(?:vmware|vm\b|linux|ubuntu|ssh|guest|distro|apt|systemctl|bash)\b",
+    flags=re.IGNORECASE,
+)
+_UI_CTX_RE = re.compile(
+    r"\b(?:ui|button|buttons|control|controls|element|elements|inspect|screen|menu)\b",
+    flags=re.IGNORECASE,
+)
+
+
+def _load_schemas() -> list[dict]:
+    if not _SCHEMAS_PATH.exists():
+        raise FileNotFoundError(f"Missing locked tool schema file: {_SCHEMAS_PATH}")
+    return json.loads(_SCHEMAS_PATH.read_text(encoding="utf-8"))
+
+
+AGENT_TOOL_SCHEMAS: list[dict] = _load_schemas()
+_TOOL_BY_NAME: dict[str, dict] = {s["function"]["name"]: s for s in AGENT_TOOL_SCHEMAS}
+
+
+def select_tools_for_turn(user_text: str, live_ctx: str = "") -> list[dict]:
+    """Prune irrelevant Word/VMware/UI tool schemas identically to app/tools/registry.py."""
+    combined = f"{user_text}\n{live_ctx}"
+    names: list[str] = list(_CORE_TOOLS)
+    if "Open Word Doc:" in live_ctx or _WORD_CTX_RE.search(combined):
+        names.extend(_WORD_TOOLS)
+    if "vmware" in live_ctx.lower() or _VMWARE_CTX_RE.search(combined):
+        names.extend(_VMWARE_TOOLS)
+    if _UI_CTX_RE.search(user_text):
+        names.append("inspect_ui_elements")
+    return [_TOOL_BY_NAME[n] for n in names if n in _TOOL_BY_NAME]
 
 SYSTEM_PROMPT = (
     "You are J.U.D.E., a local-first Windows 11 desktop AI agent with VMware Linux guest integration. "
@@ -277,11 +327,8 @@ def main() -> int:
                 raise RuntimeError(f"Privacy violation detected ({bad}) in generated dataset!")
 
     colab_dir = Path(__file__).resolve().parent
-    schema_path = colab_dir / "jude_tool_schemas.json"
     train_path = colab_dir / "jude_agent_dataset.jsonl"
     eval_path = colab_dir / "jude_agent_eval.jsonl"
-
-    schema_path.write_text(json.dumps(AGENT_TOOL_SCHEMAS, indent=2, ensure_ascii=False), encoding="utf-8")
 
     with train_path.open("w", encoding="utf-8") as f:
         for row in train_rows:
@@ -291,7 +338,7 @@ def main() -> int:
         for row in eval_rows:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
-    print(f"Wrote {len(AGENT_TOOL_SCHEMAS)} schemas -> {schema_path} ({schema_path.stat().st_size / 1024:.1f} KB)")
+    print(f"Using {len(AGENT_TOOL_SCHEMAS)} schemas from {_SCHEMAS_PATH.name}")
     print(f"Generated {len(train_rows)} train examples -> {train_path} ({train_path.stat().st_size / 1024:.1f} KB)")
     print(f"Generated {len(eval_rows)} eval examples -> {eval_path} ({eval_path.stat().st_size / 1024:.1f} KB)")
     return 0
