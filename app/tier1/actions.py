@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ctypes
+import json
 import os
 import re
 import shutil
@@ -130,7 +131,7 @@ _APP_TARGETS: list[tuple[tuple[str, ...], str, str]] = [
     (("windows terminal", "terminal"), "wt.exe", "Windows Terminal"),
     (("powershell",), "powershell.exe", "PowerShell"),
     (("command prompt", "cmd"), "cmd.exe", "Command Prompt"),
-    (("file explorer", "explorer"), "explorer.exe", "File Explorer"),
+    (("file explorer", "file manager", "explorer"), "explorer.exe", "File Explorer"),
     (("vs code", "visual studio code"), "code", "Visual Studio Code"),
     (("microsoft word", "word"), "winword", "Microsoft Word"),
     (("microsoft excel", "excel"), "excel", "Microsoft Excel"),
@@ -225,6 +226,128 @@ _DRIVE_PHRASE_RE = re.compile(
 )
 
 
+_CHROME_CANDIDATES = (
+    Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe"),
+    Path(r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"),
+)
+
+
+def find_chrome_exe() -> Path | None:
+    """Locate Google Chrome executable cleanly across standard Windows install paths."""
+    on_path = shutil.which("chrome") or shutil.which("chrome.exe")
+    if on_path:
+        p = Path(on_path)
+        try:
+            if p.exists():
+                return p
+        except OSError:
+            pass
+    local_app = Path(os.environ.get("LOCALAPPDATA", ""))
+    cands = list(_CHROME_CANDIDATES)
+    if str(local_app):
+        cands.append(local_app / "Google" / "Chrome" / "Application" / "chrome.exe")
+    for cand in cands:
+        try:
+            if cand.exists():
+                return cand
+        except OSError:
+            continue
+    return None
+
+
+def list_chrome_profiles(local_state_path: Path | None = None) -> list[dict]:
+    """Read Chrome profile directory names and display names from Local State safely."""
+    state_path = local_state_path or (
+        Path(os.environ.get("LOCALAPPDATA", ""))
+        / "Google"
+        / "Chrome"
+        / "User Data"
+        / "Local State"
+    )
+    try:
+        if not state_path.exists():
+            return []
+        data = json.loads(state_path.read_text(encoding="utf-8"))
+        info_cache = (data.get("profile") or {}).get("info_cache") or {}
+        profiles: list[dict] = []
+        for dir_name, meta in info_cache.items():
+            if not isinstance(meta, dict):
+                continue
+            disp = str(meta.get("name") or meta.get("gaia_name") or dir_name).strip()
+            profiles.append({"dir": str(dir_name), "name": disp})
+        return profiles
+    except OSError:
+        return []
+    except Exception:
+        return []
+
+
+def _extract_chrome_profile_hint(text: str) -> str:
+    m = re.search(
+        r"\b(?:profile|from|user|as|for)\s+([A-Za-z0-9 ._-]{2,40})$",
+        text.strip(),
+        flags=re.IGNORECASE,
+    )
+    if m:
+        cand = m.group(1).strip(" .?!\"'")
+        cand = re.sub(r"\s+(?:user|profile)$", "", cand, flags=re.IGNORECASE).strip()
+        if cand.lower() not in {"me", "chrome", "google", "browser"}:
+            return cand
+    return ""
+
+
+def open_chrome(
+    url: str = "",
+    profile: str = "",
+    dry_run: bool = False,
+    local_state_path: Path | None = None,
+) -> tuple[bool, str]:
+    """Launch Google Chrome directly (bypassing default Edge) with optional profile selection."""
+    chrome_exe = find_chrome_exe()
+    clean_url = (url or "").strip()
+    clean_prof = (profile or "").strip()
+
+    if chrome_exe is None:
+        if clean_url:
+            if not dry_run:
+                webbrowser.open(clean_url)
+            return True, f"Opened `{clean_url}` in the default browser (Chrome executable not found)."
+        return False, "Google Chrome was not found on this PC."
+
+    cmd: list[str] = [str(chrome_exe)]
+    matched_label = ""
+    if clean_prof:
+        low_p = clean_prof.lower()
+        if "guest" in low_p:
+            cmd.append("--guest")
+            matched_label = "Guest"
+        else:
+            profiles = list_chrome_profiles(local_state_path=local_state_path)
+            exact = [
+                p for p in profiles
+                if p["name"].lower() == low_p or p["dir"].lower() == low_p
+            ]
+            partial = [
+                p for p in profiles
+                if low_p in p["name"].lower() or low_p in p["dir"].lower()
+            ]
+            chosen = (exact or partial or [None])[0]
+            if chosen is not None:
+                cmd.append(f"--profile-directory={chosen['dir']}")
+                matched_label = chosen["name"]
+
+    if clean_url:
+        cmd.append(clean_url)
+
+    if not dry_run:
+        subprocess.Popen(cmd, shell=False)
+
+    prof_note = f" (profile: {matched_label})" if matched_label else ""
+    if clean_url:
+        return True, f"Opened Google Chrome{prof_note} to `{clean_url}`."
+    return True, f"Launched Google Chrome{prof_note}."
+
+
 def open_target(text: str, dry_run: bool = False) -> tuple[bool, str]:
     """Open a whitelisted app/settings URI, drive root, or existing folder/document safely."""
     cleaned_text = _strip_wake_word(text)
@@ -250,6 +373,12 @@ def open_target(text: str, dry_run: bool = False) -> tuple[bool, str]:
                 os.startfile(str(drive_root))
             return True, f"Opened `{drive_root}` in File Explorer."
         return False, f"Drive `{letter}:` is not available on this PC."
+
+    # 2b. Chrome (with optional profile/Google URL) BEFORE generic URI/app fallback so Chrome never redirects to Edge
+    if re.search(r"\b(?:google\s+chrome|chrome)\b", low):
+        prof_hint = _extract_chrome_profile_hint(cleaned_text)
+        target_url = "https://www.google.com" if re.search(r"\bgoogle\b", low) and "chrome" in low and not re.search(r"\bgoogle\s+chrome\b", low) else ""
+        return open_chrome(url=target_url, profile=prof_hint, dry_run=dry_run)
 
     # 3. URI / web targets BEFORE folder aliases (WhatsApp, Google, YouTube)
     for keywords, uri_target, display_name, fallback_url in _URI_OR_WEB_TARGETS:
@@ -314,21 +443,77 @@ def resolve_directory_path(path_hint: str) -> Path | None:
 
 
 def open_terminal(path: str = "", dry_run: bool = False) -> tuple[bool, str]:
-    """Open Windows Terminal (or PowerShell fallback) at the requested directory."""
-    target_dir = resolve_directory_path(path) if path.strip() else ROOT_DIR
-    if target_dir is None or not target_dir.exists():
-        return False, f"Directory not found for terminal: `{path}`."
+    """Open Windows Terminal (or PowerShell fallback) at the requested or default directory."""
+    raw_path = (path or "").strip()
+    resolved = resolve_directory_path(raw_path) if raw_path else ROOT_DIR
+    fell_back = False
+    if resolved is None or not resolved.exists():
+        resolved = ROOT_DIR
+        fell_back = bool(raw_path)
 
     if not dry_run:
         wt_exe = shutil.which("wt.exe") or shutil.which("wt")
         if wt_exe:
-            subprocess.Popen([wt_exe, "-d", str(target_dir)], shell=False)
+            subprocess.Popen([wt_exe, "-d", str(resolved)], shell=False)
         else:
             subprocess.Popen(
-                ["powershell.exe", "-NoExit", "-Command", f"Set-Location -LiteralPath '{target_dir}'"],
+                ["powershell.exe", "-NoExit", "-Command", f"Set-Location -LiteralPath '{resolved}'"],
                 shell=False,
             )
-    return True, f"Opened terminal at `{target_dir}`."
+    if fell_back:
+        return True, f"Path `{raw_path}` was not found; opened terminal at default folder `{resolved}`."
+    return True, f"Opened terminal at `{resolved}`."
+
+
+def control_window(
+    action: str,
+    query: str = "",
+    target_hwnd: int | None = None,
+) -> tuple[bool, str]:
+    """Minimize, maximize, or restore an open window (matching query or active external hwnd)."""
+    act = (action or "").strip().lower()
+    sw_map = {
+        "minimize": win32con.SW_MINIMIZE,
+        "maximize": win32con.SW_MAXIMIZE,
+        "restore": win32con.SW_RESTORE,
+    }
+    if act not in sw_map:
+        return False, f"Unsupported window action `{action}`. Use minimize, maximize, or restore."
+
+    chosen_title = ""
+    chosen_proc = ""
+    hwnd = 0
+    q = " ".join(_strip_wake_word(query).lower().split())
+    q = re.sub(r"^(?:my|the)\s+", "", q)
+    q = re.sub(r"\s+(?:app|application|window)$", "", q).strip()
+
+    if q:
+        for win in list_open_windows():
+            if q in win["title"].lower() or q in win["process"].lower().replace(".exe", ""):
+                hwnd = win["hwnd"]
+                chosen_title = win["title"]
+                chosen_proc = win["process"]
+                break
+        if not hwnd:
+            return False, f"No open window matching `{query}` was found."
+    elif target_hwnd and win32gui.IsWindow(target_hwnd):
+        hwnd = int(target_hwnd)
+        chosen_title = win32gui.GetWindowText(hwnd).strip() or "Active Window"
+    else:
+        wins = list_open_windows()
+        if not wins:
+            return False, "No external open window was found."
+        hwnd = wins[0]["hwnd"]
+        chosen_title = wins[0]["title"]
+        chosen_proc = wins[0]["process"]
+
+    try:
+        win32gui.ShowWindow(hwnd, sw_map[act])
+        verb = {"minimize": "Minimized", "maximize": "Maximized", "restore": "Restored"}[act]
+        suffix = f" ({chosen_proc})" if chosen_proc else ""
+        return True, f"{verb} `{chosen_title}`{suffix}."
+    except Exception as exc:
+        return False, f"Could not {act} `{chosen_title}`: {exc}"
 
 
 def list_open_windows() -> list[dict]:

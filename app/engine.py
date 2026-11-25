@@ -19,10 +19,12 @@ from app.config import (
 )
 from app.router.intent_router import IntentRouter, RouteResult
 from app.tier1.actions import (
+    control_window,
     execute_close_app,
     execute_compression,
     get_system_info,
     open_target,
+    open_terminal,
     plan_close_app,
     plan_compression,
 )
@@ -209,6 +211,16 @@ _OPEN_APP_RE = re.compile(
     r"|^(?:please\s+|can\s+you\s+)?(?:open|launch|start)\s+.+$",
     flags=re.IGNORECASE,
 )
+_BARE_TERMINAL_RE = re.compile(
+    r"^(?:(?:(?:hey|hi|hello)\s+)?jude[\s,:-]+)?(?:please\s+|can\s+you\s+)?"
+    r"(?:(?:open|launch|start)\s+(?:a\s+|the\s+|my\s+)?(?:windows\s+)?terminal|terminal)[.?!]*$",
+    flags=re.IGNORECASE,
+)
+_WIN_CTRL_RE = re.compile(
+    r"^(?:(?:(?:hey|hi|hello)\s+)?jude[\s,:-]+)?(?:please\s+|can\s+you\s+)?"
+    r"(minimize|maximize|restore)(?:\s+(?:the\s+|my\s+)?(.+?))?[.?!]*$",
+    flags=re.IGNORECASE,
+)
 _CLOSE_APP_RE = re.compile(
     r"^(?:(?:(?:hey|hi|hello)\s+)?jude[\s,:-]+)?(?:please\s+|can\s+you\s+)?close\s+(.+?)[.?!]*$",
     flags=re.IGNORECASE,
@@ -240,6 +252,10 @@ def _match_deterministic_guard(cleaned: str) -> tuple[str, str] | None:
         return ("READ_SELECTION", "tier1")
     if _DRIVE_OPEN_RE.search(low):
         return ("OPEN_TARGET", "tier1")
+    if _BARE_TERMINAL_RE.match(cleaned):
+        return ("OPEN_TERMINAL_DIRECT", "tier1")
+    if _WIN_CTRL_RE.match(cleaned):
+        return ("WINDOW_CONTROL_DIRECT", "tier1")
     if _CLOSE_APP_RE.match(cleaned):
         return ("CLOSE_APP_DIRECT", "tier2")
     if (
@@ -317,6 +333,22 @@ class JudeEngine:
             if ok:
                 self._remember_opened_target(msg)
                 log_activity("open_target", text[:120], msg, db_path=self.memory_db_path)
+            return msg
+        if intent == "OPEN_TERMINAL_DIRECT":
+            ok, msg = open_terminal("")
+            if ok:
+                self._last_opened_target = "terminal"
+                log_activity("open_terminal", "default", msg, db_path=self.memory_db_path)
+            return msg
+        if intent == "WINDOW_CONTROL_DIRECT":
+            m = _WIN_CTRL_RE.match(text)
+            act = (m.group(1) if m else "minimize").lower()
+            query = (m.group(2) if m and m.group(2) else "").strip()
+            if query.lower() in {"it", "that", "this", "this app", "that app", "this window"}:
+                query = self._last_opened_target
+            ok, msg = control_window(action=act, query=query, target_hwnd=target_hwnd)
+            if ok:
+                log_activity("window_control", f"{act}:{query or 'active'}", msg, db_path=self.memory_db_path)
             return msg
         if intent == "SYSTEM_INFO":
             return get_system_info(text)

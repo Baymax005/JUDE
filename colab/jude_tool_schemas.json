@@ -1,0 +1,377 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "read_open_word_doc",
+      "description": "Read text or a named section from the currently open Microsoft Word document.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "section_hint": {
+            "type": "string",
+            "description": "Optional section heading or keyword, e.g. 'executive summary'."
+          }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "create_word_doc",
+      "description": "Draft a new Microsoft Word (.docx) document for user confirmation before saving.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Document title."
+          },
+          "content": {
+            "type": "string",
+            "description": "Full body content of the document."
+          },
+          "save_path": {
+            "type": "string",
+            "description": "Optional target folder or .docx path."
+          }
+        },
+        "required": [
+          "title",
+          "content"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "edit_word_doc",
+      "description": "Prepare a proposed edit to the open Microsoft Word document selection or named section.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "instruction": {
+            "type": "string",
+            "description": "What change or rewrite to make."
+          },
+          "section_hint": {
+            "type": "string",
+            "description": "Optional section name if nothing is highlighted."
+          }
+        },
+        "required": [
+          "instruction"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "open_app_or_site",
+      "description": "Open a Windows application, File Explorer, WhatsApp, Chrome (optional profile), Google, YouTube, drive, or folder.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string",
+            "description": "App name ('chrome', 'word', 'file manager', 'whatsapp'), drive ('D drive'), or path."
+          },
+          "profile": {
+            "type": "string",
+            "description": "Optional Chrome user profile name (e.g., 'Guest' or profile display name)."
+          }
+        },
+        "required": [
+          "target"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "close_app",
+      "description": "Stage closing an open desktop application window for user confirmation.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string",
+            "description": "Window title or application name to close."
+          }
+        },
+        "required": [
+          "target"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "list_windows",
+      "description": "List visible open desktop windows with titles and process names.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "focus_window",
+      "description": "Bring an open window to the foreground by title or process name.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Partial window title or process name."
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "window_control",
+      "description": "Minimize, maximize, or restore an open desktop window.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "minimize",
+              "maximize",
+              "restore"
+            ]
+          },
+          "query": {
+            "type": "string",
+            "description": "Optional partial window title or app name; omit for active window."
+          }
+        },
+        "required": [
+          "action"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "open_terminal",
+      "description": "Open Windows Terminal or PowerShell. Leave path empty unless the user explicitly named a folder or drive.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Optional existing directory path or drive ('D:\\'); omit or pass '' for default."
+          }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "navigate_files",
+      "description": "List files in a folder, search files by pattern, or open a path in Explorer.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Folder path or drive."
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "list",
+              "find",
+              "open"
+            ]
+          },
+          "pattern": {
+            "type": "string",
+            "description": "Filename pattern when action is 'find'."
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "google_search",
+      "description": "Search the web and summarize results, or open Google Search directly in Google Chrome.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query."
+          },
+          "open_in_browser": {
+            "type": "boolean",
+            "description": "Set true if the user wants Google opened in Chrome/browser."
+          },
+          "browser": {
+            "type": "string",
+            "enum": [
+              "chrome",
+              "default"
+            ],
+            "description": "Browser to open; defaults to 'chrome'."
+          },
+          "profile": {
+            "type": "string",
+            "description": "Optional Chrome profile name."
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "read_active_screen",
+      "description": "Read text from the active window (uses native Windows OCR automatically for VMware).",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "inspect_ui_elements",
+      "description": "Inspect up to 50 visible interactive UI controls on the active window (masks passwords).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "max_controls": {
+            "type": "integer",
+            "description": "Maximum controls to return (1-50)."
+          }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "memory_save",
+      "description": "Save a personal fact or a user workflow/style preference to local memory.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "fact": {
+            "type": "string",
+            "description": "Personal fact to remember."
+          },
+          "preference_key": {
+            "type": "string",
+            "description": "Optional preference key, e.g. 'word_edit_style'."
+          },
+          "preference_value": {
+            "type": "string",
+            "description": "Optional preference value, e.g. 'formal and concise'."
+          }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "memory_recall",
+      "description": "Search saved personal memories and facts.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Topic or query to search in local memory."
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "memory_delete",
+      "description": "Delete a saved personal memory matching a query.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Topic or memory description to remove."
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "vmware_list_vms",
+      "description": "List running VMware virtual machines via vmrun and resolve guest IPs.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "vmware_run_linux_cmd",
+      "description": "Execute a Linux shell command inside a running VMware VM over key-based SSH.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "Linux shell command to execute."
+          },
+          "host_ip": {
+            "type": "string",
+            "description": "Optional VM IP address."
+          },
+          "vmx_path": {
+            "type": "string",
+            "description": "Optional VM .vmx path."
+          }
+        },
+        "required": [
+          "command"
+        ]
+      }
+    }
+  }
+]

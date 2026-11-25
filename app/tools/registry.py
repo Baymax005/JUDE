@@ -8,10 +8,12 @@ from urllib.parse import quote_plus
 
 from app.config import BACKUPS_DIR, MEMORY_DB_PATH
 from app.tier1.actions import (
+    control_window,
     focus_window,
     get_system_info,
     list_open_windows,
     navigate_files,
+    open_chrome,
     open_target,
     open_terminal,
     plan_close_app,
@@ -83,11 +85,12 @@ AGENT_TOOL_SCHEMAS: list[dict] = [
         "type": "function",
         "function": {
             "name": "open_app_or_site",
-            "description": "Open a Windows application, WhatsApp, Chrome, Google, YouTube, drive, or local folder.",
+            "description": "Open a Windows application, File Explorer, WhatsApp, Chrome (optional profile), Google, YouTube, drive, or folder.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "target": {"type": "string", "description": "App name, website ('whatsapp', 'google'), drive ('D drive'), or path."}
+                    "target": {"type": "string", "description": "App name ('chrome', 'word', 'file manager', 'whatsapp'), drive ('D drive'), or path."},
+                    "profile": {"type": "string", "description": "Optional Chrome user profile name (e.g., 'Guest' or profile display name)."},
                 },
                 "required": ["target"],
             },
@@ -132,12 +135,27 @@ AGENT_TOOL_SCHEMAS: list[dict] = [
     {
         "type": "function",
         "function": {
-            "name": "open_terminal",
-            "description": "Open Windows Terminal or PowerShell at a specified drive or folder path.",
+            "name": "window_control",
+            "description": "Minimize, maximize, or restore an open desktop window.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "Directory path, drive ('D:\\'), or alias ('Desktop', 'Jude')."}
+                    "action": {"type": "string", "enum": ["minimize", "maximize", "restore"]},
+                    "query": {"type": "string", "description": "Optional partial window title or app name; omit for active window."},
+                },
+                "required": ["action"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "open_terminal",
+            "description": "Open Windows Terminal or PowerShell. Leave path empty unless the user explicitly named a folder or drive.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Optional existing directory path or drive ('D:\\'); omit or pass '' for default."}
                 },
             },
         },
@@ -162,12 +180,14 @@ AGENT_TOOL_SCHEMAS: list[dict] = [
         "type": "function",
         "function": {
             "name": "google_search",
-            "description": "Search the web and summarize results, or open Google Search in the browser.",
+            "description": "Search the web and summarize results, or open Google Search directly in Google Chrome.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "Search query."},
                     "open_in_browser": {"type": "boolean", "description": "Set true if the user wants Google opened in Chrome/browser."},
+                    "browser": {"type": "string", "enum": ["chrome", "default"], "description": "Browser to open; defaults to 'chrome'."},
+                    "profile": {"type": "string", "description": "Optional Chrome profile name."},
                 },
                 "required": ["query"],
             },
@@ -272,6 +292,7 @@ _CORE_TOOLS = (
     "close_app",
     "list_windows",
     "focus_window",
+    "window_control",
     "open_terminal",
     "navigate_files",
     "google_search",
@@ -409,9 +430,21 @@ def _execute_tool_call(
 
     if name == "open_app_or_site":
         target = str(args.get("target") or "")
-        ok, msg = open_target(target)
+        profile = str(args.get("profile") or "").strip()
+        if "chrome" in target.lower():
+            ok, msg = open_chrome(profile=profile)
+        else:
+            ok, msg = open_target(target)
         if ok:
             log_activity("open_target", target, msg, memory_db_path)
+        return json.dumps({"ok": ok, "message": msg}, ensure_ascii=False), None, sources
+
+    if name == "window_control":
+        act = str(args.get("action") or "minimize")
+        q = str(args.get("query") or "")
+        ok, msg = control_window(action=act, query=q, target_hwnd=target_hwnd)
+        if ok:
+            log_activity("window_control", f"{act}:{q or 'active'}", msg, memory_db_path)
         return json.dumps({"ok": ok, "message": msg}, ensure_ascii=False), None, sources
 
     if name == "close_app":
@@ -460,9 +493,15 @@ def _execute_tool_call(
         q = str(args.get("query") or "").strip()
         if bool(args.get("open_in_browser")):
             url = f"https://www.google.com/search?q={quote_plus(q)}"
-            webbrowser.open(url)
+            browser = str(args.get("browser") or "chrome").strip().lower()
+            profile = str(args.get("profile") or "").strip()
+            if browser == "chrome":
+                ok, msg = open_chrome(url=url, profile=profile)
+            else:
+                webbrowser.open(url)
+                ok, msg = True, f"Opened Google search for '{q}' in default browser."
             log_activity("google_browser", q, url, memory_db_path)
-            return json.dumps({"ok": True, "message": f"Opened Google search for '{q}' in browser."}, ensure_ascii=False), None, sources
+            return json.dumps({"ok": ok, "message": msg}, ensure_ascii=False), None, sources
         summary, srcs = run_web_search(q, ollama)
         sources.extend(srcs)
         log_activity("web_search", q, "", memory_db_path)

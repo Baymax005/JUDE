@@ -450,6 +450,96 @@ def test_real_chat_fixes_routing_explorer_and_speech() -> None:
     print("[OK] Real-world voice chat bug fixes & routing tests passed")
 
 
+def test_step2_chrome_file_manager_terminal_minimize_and_colab_artifacts() -> None:
+    import json
+    from app.config import ROOT_DIR
+    from app.engine import JudeEngine
+    from app.tier1.actions import control_window, open_chrome, open_target, open_terminal
+    from app.tools.registry import AGENT_TOOL_SCHEMAS
+
+    # 1. File manager launches File Explorer cleanly
+    ok_fm, msg_fm = open_target("Open File Manager", dry_run=True)
+    assert ok_fm and "File Explorer" in msg_fm, (ok_fm, msg_fm)
+
+    # 2. Chrome direct launch + profile matching from mock Local State (never redirects to Edge)
+    tmp = _make_temp_dir("chrome_prof")
+    try:
+        local_state = tmp / "Local State"
+        local_state.write_text(
+            json.dumps(
+                {
+                    "profile": {
+                        "info_cache": {
+                            "Default": {"name": "Personal"},
+                            "Profile 2": {"name": "Work"},
+                        }
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        with patch("app.tier1.actions.find_chrome_exe", return_value=Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe")):
+            ok_ch, msg_ch = open_chrome(
+                url="https://www.google.com/search?q=GitHub",
+                profile="Work",
+                dry_run=True,
+                local_state_path=local_state,
+            )
+            assert ok_ch and "profile: Work" in msg_ch and "GitHub" in msg_ch, (ok_ch, msg_ch)
+
+            ok_g, msg_g = open_chrome(profile="Guest", dry_run=True, local_state_path=local_state)
+            assert ok_g and "profile: Guest" in msg_g, (ok_g, msg_g)
+
+        # 3. Terminal non-existent path falls back safely to ROOT_DIR instead of looping
+        ok_t, msg_t = open_terminal(r"C:\NonExistent\Fake\ISE", dry_run=True)
+        assert ok_t and "default folder" in msg_t, (ok_t, msg_t)
+
+        # 4. Window minimize + bare terminal deterministic routing in JudeEngine
+        engine = JudeEngine(
+            memory_db_path=tmp / "memory.db",
+            backups_dir=tmp / "backups",
+            feedback_path=tmp / "feedback.jsonl",
+        )
+        with patch("app.engine.open_terminal", return_value=(True, "Opened terminal at default.")) as mock_term:
+            res_t = engine.process("Open the terminal")
+            assert res_t.tier_used == "tier1" and mock_term.called, res_t
+
+        with patch("app.tier1.actions.win32gui.ShowWindow") as mock_sw, patch(
+            "app.tier1.actions.win32gui.IsWindow", return_value=True
+        ), patch("app.tier1.actions.win32gui.GetWindowText", return_value="Chrome"):
+            ok_min, msg_min = control_window("minimize", target_hwnd=555)
+            assert ok_min and "Minimized" in msg_min and mock_sw.called, (ok_min, msg_min)
+
+        with patch("app.engine.control_window", return_value=(True, "Minimized `Chrome`.")) as mock_ctrl:
+            res_m = engine.process("Can you minimize?", target_hwnd=555)
+            assert res_m.tier_used == "tier1" and "Minimized" in res_m.reply and mock_ctrl.called, res_m
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    # 5. Locked 18 tool schemas + QLoRA JSONL datasets + Colab notebook structure validation
+    assert len(AGENT_TOOL_SCHEMAS) == 18, len(AGENT_TOOL_SCHEMAS)
+    schema_names = {s["function"]["name"] for s in AGENT_TOOL_SCHEMAS}
+    colab_dir = ROOT_DIR / "colab"
+    schemas_file = colab_dir / "jude_tool_schemas.json"
+    train_jsonl = colab_dir / "jude_agent_dataset.jsonl"
+    eval_jsonl = colab_dir / "jude_agent_eval.jsonl"
+    nb_file = colab_dir / "train_tier2_jude_lora.ipynb"
+
+    assert schemas_file.exists() and train_jsonl.exists() and eval_jsonl.exists() and nb_file.exists()
+    assert train_jsonl.stat().st_size < 1.5 * 1024 * 1024, "Keep train JSONL compact (<1.5 MB)"
+    train_rows = [json.loads(line) for line in train_jsonl.read_text(encoding="utf-8").splitlines() if line.strip()]
+    eval_rows = [json.loads(line) for line in eval_jsonl.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert len(train_rows) >= 500 and len(eval_rows) == 90, (len(train_rows), len(eval_rows))
+    for r in train_rows + eval_rows:
+        for tn in r.get("tool_names", []):
+            assert tn in schema_names, f"Unknown tool name {tn}"
+        if r.get("expected_tool"):
+            assert r["expected_tool"] in schema_names
+    nb_data = json.loads(nb_file.read_text(encoding="utf-8"))
+    assert nb_data.get("nbformat") == 4 and len(nb_data.get("cells", [])) >= 8
+    print("[OK] Chrome profiles, File Manager, Terminal fallback, Minimize, and QLoRA dataset/notebook passed")
+
+
 def main() -> int:
     configure_d_drive_env()
     assert_no_c_drive_leakage()
@@ -460,6 +550,7 @@ def main() -> int:
     test_vmware_linux_bridge_and_confirmation_gate()
     test_hud_two_row_layout_and_tts_markdown_strip()
     test_real_chat_fixes_routing_explorer_and_speech()
+    test_step2_chrome_file_manager_terminal_minimize_and_colab_artifacts()
     print("\nALL J.U.D.E. V2 AGENT TESTS PASSED!")
     return 0
 
