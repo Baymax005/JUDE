@@ -40,9 +40,8 @@ def _print_banner(router_status: str) -> None:
     print(f"  Memory DB      : {MEMORY_DB_PATH}")
     print(f"  Ollama Endpoint: {OLLAMA_BASE_URL} (model={OLLAMA_MODEL})")
     print(
-        f"  Tier 1 Gate    : Direct >= {TIER1_CONFIDENCE_THRESHOLD:.2f} | "
-        f"Confirm {TIER1_CONFIRM_THRESHOLD:.2f}-{TIER1_CONFIDENCE_THRESHOLD:.2f} | "
-        f"Escalate < {TIER1_CONFIRM_THRESHOLD:.2f}"
+        f"  Tier 1 Gate    : Fast Direct >= {TIER1_CONFIDENCE_THRESHOLD:.2f} | "
+        f"Silent Tier 2 Agent Escalation < {TIER1_CONFIDENCE_THRESHOLD:.2f}"
     )
     print(f"  Tier 1 Router  : {router_status}")
     print("=" * 60)

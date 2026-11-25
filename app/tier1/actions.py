@@ -6,9 +6,15 @@ import re
 import shutil
 import socket
 import subprocess
+import webbrowser
 import zipfile
 from datetime import datetime
 from pathlib import Path
+
+import psutil
+import win32con
+import win32gui
+import win32process
 
 from app.config import OLLAMA_BASE_URL, ROOT_DIR
 
@@ -134,6 +140,24 @@ _APP_TARGETS: list[tuple[tuple[str, ...], str, str]] = [
     (("sticky notes",), "explorer.exe shell:AppsFolder\\Microsoft.MicrosoftStickyNotes_8wekyb3d8bbwe!App", "Sticky Notes"),
 ]
 
+_URI_OR_WEB_TARGETS: list[tuple[tuple[str, ...], str, str, str | None]] = [
+    (("whatsapp",), "whatsapp:", "WhatsApp", "https://web.whatsapp.com"),
+    (("google",), "https://www.google.com", "Google", None),
+    (("youtube",), "https://www.youtube.com", "YouTube", None),
+]
+
+_PROTECTED_PROCESSES = {
+    "explorer.exe",
+    "svchost.exe",
+    "csrss.exe",
+    "winlogon.exe",
+    "dwm.exe",
+    "lsass.exe",
+    "services.exe",
+    "smss.exe",
+    "system",
+}
+
 _FOLDER_ALIASES: dict[str, Path] = {
     "downloads": Path.home() / "Downloads",
     "desktop": Path.home() / "Desktop",
@@ -141,6 +165,7 @@ _FOLDER_ALIASES: dict[str, Path] = {
     "pictures": Path.home() / "Pictures",
     "videos": Path.home() / "Videos",
     "music": Path.home() / "Music",
+    "jude": ROOT_DIR,
 }
 
 _DISALLOWED_EXEC_EXTS = {".exe", ".bat", ".cmd", ".ps1", ".vbs", ".msi", ".com"}
@@ -211,6 +236,18 @@ def open_target(text: str, dry_run: bool = False) -> tuple[bool, str]:
             return True, f"Opened `{drive_root}` in File Explorer."
         return False, f"Drive `{letter}:` is not available on this PC."
 
+    for keywords, uri_target, display_name, fallback_url in _URI_OR_WEB_TARGETS:
+        if any(re.search(rf"\b{re.escape(kw)}\b", low) for kw in keywords):
+            if not dry_run:
+                try:
+                    os.startfile(uri_target)
+                except OSError:
+                    if fallback_url:
+                        webbrowser.open(fallback_url)
+                    else:
+                        webbrowser.open(uri_target)
+            return True, f"Opened {display_name}."
+
     for keywords, target_cmd, display_name in _APP_TARGETS:
         if any(re.search(rf"\b{re.escape(kw)}\b", low) for kw in keywords):
             if not dry_run:
@@ -231,6 +268,177 @@ def open_target(text: str, dry_run: bool = False) -> tuple[bool, str]:
         return True, f"Opened `{path_cand}`."
 
     return False, "I couldn't identify a valid local folder, file, or supported Windows app in that request."
+
+
+def resolve_directory_path(path_hint: str) -> Path | None:
+    """Resolve an explicit path, drive phrase, or user folder alias to an existing directory."""
+    raw = (path_hint or "").strip()
+    if not raw:
+        return ROOT_DIR
+    cand = _extract_path_candidate(raw)
+    if cand is not None:
+        return cand if cand.is_dir() else cand.parent
+    drive_match = _DRIVE_PHRASE_RE.search(raw)
+    if drive_match:
+        letter = (drive_match.group(1) or drive_match.group(2) or "").upper()
+        root = Path(f"{letter}:\\")
+        if root.exists():
+            return root
+    bare_drive = re.fullmatch(r"([A-Za-z]):[\\/]?", raw)
+    if bare_drive:
+        root = Path(f"{bare_drive.group(1).upper()}:\\")
+        if root.exists():
+            return root
+    return None
+
+
+def open_terminal(path: str = "", dry_run: bool = False) -> tuple[bool, str]:
+    """Open Windows Terminal (or PowerShell fallback) at the requested directory."""
+    target_dir = resolve_directory_path(path) if path.strip() else ROOT_DIR
+    if target_dir is None or not target_dir.exists():
+        return False, f"Directory not found for terminal: `{path}`."
+
+    if not dry_run:
+        wt_exe = shutil.which("wt.exe") or shutil.which("wt")
+        if wt_exe:
+            subprocess.Popen([wt_exe, "-d", str(target_dir)], shell=False)
+        else:
+            subprocess.Popen(
+                ["powershell.exe", "-NoExit", "-Command", f"Set-Location -LiteralPath '{target_dir}'"],
+                shell=False,
+            )
+    return True, f"Opened terminal at `{target_dir}`."
+
+
+def list_open_windows() -> list[dict]:
+    """Return visible top-level non-JUDE windows with hwnd, title, and process name."""
+    own_pid = os.getpid()
+    windows: list[dict] = []
+
+    def _cb(hwnd: int, _param: object) -> bool:
+        if not win32gui.IsWindowVisible(hwnd):
+            return True
+        title = win32gui.GetWindowText(hwnd).strip()
+        if not title or title in {"Program Manager", "Windows Input Experience"}:
+            return True
+        try:
+            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            if pid == own_pid or pid <= 0:
+                return True
+            proc_name = psutil.Process(pid).name()
+        except Exception:
+            proc_name = "unknown"
+        windows.append({"hwnd": int(hwnd), "title": title, "process": proc_name, "pid": int(pid)})
+        return True
+
+    win32gui.EnumWindows(_cb, None)
+    return windows
+
+
+def focus_window(query: str) -> tuple[bool, str]:
+    """Focus and restore a matching visible window by title or process name."""
+    q = " ".join((query or "").strip().lower().split())
+    if not q:
+        return False, "Tell me which open window you want to focus."
+    windows = list_open_windows()
+    for win in windows:
+        if q in win["title"].lower() or q in win["process"].lower().replace(".exe", ""):
+            hwnd = win["hwnd"]
+            try:
+                if win32gui.IsIconic(hwnd):
+                    win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                win32gui.SetForegroundWindow(hwnd)
+                return True, f"Focused `{win['title']}` ({win['process']})."
+            except Exception as exc:
+                return False, f"Found `{win['title']}`, but Windows blocked focusing it: {exc}"
+    return False, f"No open window matched `{query}`."
+
+
+def plan_close_app(target: str) -> dict:
+    """Resolve a target window/app for safe user-confirmed closing (blocking system processes)."""
+    q = " ".join((target or "").strip().lower().split())
+    if not q:
+        return {"ok": False, "error": "Specify which application window to close."}
+
+    windows = list_open_windows()
+    matches = [
+        w for w in windows
+        if q in w["title"].lower() or q in w["process"].lower().replace(".exe", "")
+    ]
+    if not matches:
+        return {"ok": False, "error": f"No open window matching `{target}` was found."}
+
+    chosen = matches[0]
+    proc_low = chosen["process"].lower()
+    if proc_low in _PROTECTED_PROCESSES or chosen["pid"] == os.getpid():
+        return {"ok": False, "error": f"Refusing to close protected system process `{chosen['process']}`."}
+
+    return {
+        "ok": True,
+        "hwnd": chosen["hwnd"],
+        "pid": chosen["pid"],
+        "title": chosen["title"],
+        "process": chosen["process"],
+    }
+
+
+def execute_close_app(payload: dict) -> str:
+    """Send graceful WM_CLOSE to the confirmed target window."""
+    hwnd = int(payload.get("hwnd") or 0)
+    title = payload.get("title") or "application"
+    proc = payload.get("process") or ""
+    if not hwnd or not win32gui.IsWindow(hwnd):
+        return f"Window `{title}` is already closed."
+    win32gui.PostMessage(hwnd, win32con.WM_CLOSE, 0, 0)
+    return f"Sent close request to `{title}` ({proc})."
+
+
+def navigate_files(
+    path: str,
+    action: str = "list",
+    pattern: str = "",
+    dry_run: bool = False,
+) -> str:
+    """List directory contents, search files by pattern, or open a path in Explorer."""
+    act = (action or "list").strip().lower()
+    target = resolve_directory_path(path)
+    if target is None or not target.exists():
+        return f"Path not found: `{path}`."
+
+    if act == "open":
+        if target.is_file() and target.suffix.lower() in _DISALLOWED_EXEC_EXTS:
+            return f"Blocked opening executable directly for safety: {target.name}"
+        if not dry_run:
+            os.startfile(str(target))
+        return f"Opened `{target}` in File Explorer."
+
+    if act == "find":
+        pat = pattern.strip() or "*"
+        if "*" not in pat and "?" not in pat:
+            pat = f"*{pat}*"
+        hits: list[str] = []
+        try:
+            for item in target.rglob(pat):
+                hits.append(str(item))
+                if len(hits) >= 25:
+                    break
+        except Exception as exc:
+            return f"Search failed in `{target}`: {exc}"
+        if not hits:
+            return f"No files matching `{pat}` inside `{target}`."
+        return f"Matches in `{target}` ({len(hits)} shown):\n" + "\n".join(f"- {h}" for h in hits)
+
+    entries: list[str] = []
+    try:
+        children = sorted(target.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+        for item in children[:40]:
+            tag = "[DIR]" if item.is_dir() else "[FILE]"
+            entries.append(f"{tag} {item.name}")
+    except Exception as exc:
+        return f"Could not list `{target}`: {exc}"
+    if not entries:
+        return f"Directory `{target}` is empty."
+    return f"Contents of `{target}` ({len(entries)} shown):\n" + "\n".join(entries)
 
 
 _SKIP_ZIP_DIRS = {"venv", ".git", "__pycache__", "node_modules"}

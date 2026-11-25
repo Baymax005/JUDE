@@ -103,7 +103,7 @@ class JudeFloatingWindow(QWidget):
         # Expandable HUD Card (hidden in compact floating mode)
         self.hud_card = QFrame()
         self.hud_card.setObjectName("hudCard")
-        self.hud_card.setFixedWidth(440)
+        self.hud_card.setFixedWidth(460)
         self.hud_card.setStyleSheet(
             """
             QFrame#hudCard {
@@ -203,16 +203,38 @@ class JudeFloatingWindow(QWidget):
         hud_layout.setContentsMargins(12, 12, 12, 12)
         hud_layout.setSpacing(8)
 
-        header_row = QHBoxLayout()
+        header_row_1 = QHBoxLayout()
+        header_row_1.setSpacing(6)
         brand_lbl = QLabel("J.U.D.E.")
         brand_lbl.setObjectName("brandLbl")
 
         self.tier_badge = QLabel("Ready")
         self.tier_badge.setObjectName("tierBadge")
+        self.tier_badge.setMaximumWidth(250)
+
+        collapse_btn = QPushButton("—")
+        collapse_btn.setProperty("class", "iconBtn")
+        collapse_btn.setToolTip("Collapse to floating J.U.D.E. widget")
+        collapse_btn.clicked.connect(self.toggle_hud)
+
+        self.close_btn = QPushButton("✕")
+        self.close_btn.setObjectName("closeBtn")
+        self.close_btn.setToolTip("Close & Quit J.U.D.E.")
+        self.close_btn.clicked.connect(self._quit_app)
+
+        header_row_1.addWidget(brand_lbl)
+        header_row_1.addWidget(self.tier_badge, 0, Qt.AlignmentFlag.AlignLeft)
+        header_row_1.addStretch(1)
+        header_row_1.addWidget(collapse_btn)
+        header_row_1.addWidget(self.close_btn)
+        hud_layout.addLayout(header_row_1)
+
+        header_row_2 = QHBoxLayout()
+        header_row_2.setSpacing(6)
 
         self.memory_btn = QPushButton("Memory")
         self.memory_btn.setProperty("class", "iconBtn")
-        self.memory_btn.setToolTip("View or delete saved local memories")
+        self.memory_btn.setToolTip("View or delete saved memories and learned preferences")
         self.memory_btn.clicked.connect(self.open_memory_manager)
 
         self.clear_btn = QPushButton("Clear")
@@ -228,26 +250,12 @@ class JudeFloatingWindow(QWidget):
         self.hud_mute_btn.setProperty("class", "iconBtn")
         self.hud_mute_btn.clicked.connect(self.toggle_mute)
 
-        collapse_btn = QPushButton("—")
-        collapse_btn.setProperty("class", "iconBtn")
-        collapse_btn.setToolTip("Collapse to floating J.U.D.E. widget")
-        collapse_btn.clicked.connect(self.toggle_hud)
-
-        self.close_btn = QPushButton("✕")
-        self.close_btn.setObjectName("closeBtn")
-        self.close_btn.setToolTip("Close & Quit J.U.D.E.")
-        self.close_btn.clicked.connect(self._quit_app)
-
-        header_row.addWidget(brand_lbl)
-        header_row.addWidget(self.tier_badge, 0, Qt.AlignmentFlag.AlignLeft)
-        header_row.addStretch(1)
-        header_row.addWidget(self.memory_btn)
-        header_row.addWidget(self.clear_btn)
-        header_row.addWidget(self.hud_mic_btn)
-        header_row.addWidget(self.hud_mute_btn)
-        header_row.addWidget(collapse_btn)
-        header_row.addWidget(self.close_btn)
-        hud_layout.addLayout(header_row)
+        header_row_2.addWidget(self.memory_btn)
+        header_row_2.addWidget(self.clear_btn)
+        header_row_2.addStretch(1)
+        header_row_2.addWidget(self.hud_mic_btn)
+        header_row_2.addWidget(self.hud_mute_btn)
+        hud_layout.addLayout(header_row_2)
 
         self.chat_view = QTextBrowser()
         self.chat_view.setOpenExternalLinks(True)

@@ -24,7 +24,7 @@ class ConfirmationDialog(QDialog):
 
         self.setWindowTitle(pending.title)
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
-        self.setMinimumWidth(520 if pending.kind == "word_edit" else 420)
+        self.setMinimumWidth(520 if pending.kind in {"word_edit", "word_create", "vmware_cmd"} else 420)
 
         self.setStyleSheet(
             """
@@ -103,7 +103,7 @@ class ConfirmationDialog(QDialog):
             target_lbl.setWordWrap(True)
             layout.addWidget(target_lbl)
 
-        if pending.backup_note:
+        if pending.backup_note and pending.kind != "vmware_cmd":
             backup_lbl = QLabel(pending.backup_note)
             backup_lbl.setObjectName("metaLbl")
             backup_lbl.setWordWrap(True)
@@ -126,6 +126,22 @@ class ConfirmationDialog(QDialog):
             layout.addWidget(before_box)
             layout.addWidget(after_lbl)
             layout.addWidget(self.after_edit)
+        elif pending.kind == "word_create":
+            content_lbl = QLabel("Proposed Document Content (editable):")
+            content_lbl.setObjectName("metaLbl")
+            self.after_edit = QPlainTextEdit(pending.after_text)
+            self.after_edit.setMaximumHeight(180)
+            layout.addWidget(content_lbl)
+            layout.addWidget(self.after_edit)
+        elif pending.kind == "vmware_cmd":
+            cmd_lbl = QLabel("Linux Command to Execute (key-based SSH):")
+            cmd_lbl.setObjectName("metaLbl")
+            cmd_box = QPlainTextEdit(pending.backup_note or str(pending.payload.get("command", "")))
+            cmd_box.setReadOnly(True)
+            cmd_box.setMaximumHeight(90)
+            cmd_box.setStyleSheet("font-family: 'Consolas', monospace; font-size: 12px;")
+            layout.addWidget(cmd_lbl)
+            layout.addWidget(cmd_box)
 
         btn_row = QHBoxLayout()
         btn_row.addStretch(1)
@@ -134,12 +150,7 @@ class ConfirmationDialog(QDialog):
         cancel_btn.clicked.connect(self.reject)
         btn_row.addWidget(cancel_btn)
 
-        if pending.kind == "intent_confirm":
-            escalate_btn = QPushButton("Ask Tier 2 Instead")
-            escalate_btn.clicked.connect(self._on_escalate)
-            btn_row.addWidget(escalate_btn)
-
-        confirm_btn = QPushButton("Confirm & Apply")
+        confirm_btn = QPushButton("Confirm & Execute" if pending.kind in {"vmware_cmd", "close_app"} else "Confirm & Apply")
         confirm_btn.setObjectName("confirmBtn")
         confirm_btn.setDefault(True)
         confirm_btn.clicked.connect(self.accept)

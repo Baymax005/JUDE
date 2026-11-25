@@ -44,7 +44,7 @@ _DELETE_PREFIX_RE = re.compile(
 
 
 def _init_db(conn: sqlite3.Connection) -> bool:
-    """Ensure the memories table and optional FTS5 index exist. Returns True if FTS5 is active."""
+    """Ensure the memories, activity_log, user_preferences tables and optional FTS5 index exist."""
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS memories (
@@ -52,6 +52,28 @@ def _init_db(conn: sqlite3.Connection) -> bool:
             fact_text TEXT NOT NULL,
             key_phrase TEXT NOT NULL,
             created_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS activity_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            action_type TEXT NOT NULL,
+            target TEXT NOT NULL,
+            details TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS user_preferences (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pref_key TEXT NOT NULL UNIQUE,
+            pref_value TEXT NOT NULL,
+            source TEXT NOT NULL,
+            updated_at TEXT NOT NULL
         )
         """
     )
@@ -306,3 +328,205 @@ def recall_memory(text: str, db_path: Path = MEMORY_DB_PATH, limit: int = 5) -> 
     if len(matches) == 1:
         return f"From memory: {matches[0][1]}"
     return "Here is what I found in memory:\n" + "\n".join(f"- {fact}" for _, fact, _ in matches)
+
+
+def log_activity(
+    action_type: str,
+    target: str,
+    details: str = "",
+    db_path: Path = MEMORY_DB_PATH,
+) -> None:
+    """Record a desktop or tool interaction into the local SQLite activity_log."""
+    clean_action = " ".join(str(action_type).strip().split())[:80]
+    clean_target = " ".join(str(target).strip().split())[:200]
+    clean_details = " ".join(str(details).strip().split())[:300]
+    if not clean_action or not clean_target:
+        return
+    db_path = Path(db_path)
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    with sqlite3.connect(str(db_path)) as conn:
+        _init_db(conn)
+        conn.execute(
+            "INSERT INTO activity_log (action_type, target, details, created_at) VALUES (?, ?, ?, ?)",
+            (clean_action, clean_target, clean_details, now_iso),
+        )
+        conn.commit()
+
+
+def get_frequent_activities(db_path: Path = MEMORY_DB_PATH, limit: int = 5) -> list[dict]:
+    """Return top recurring user targets from activity_log ordered by count and recency."""
+    db_path = Path(db_path)
+    if not db_path.exists():
+        return []
+    with sqlite3.connect(str(db_path)) as conn:
+        _init_db(conn)
+        rows = conn.execute(
+            """
+            SELECT action_type, target, COUNT(*) AS hit_count, MAX(created_at) AS last_used
+            FROM activity_log
+            GROUP BY action_type, target
+            ORDER BY hit_count DESC, last_used DESC
+            LIMIT ?
+            """,
+            (int(limit),),
+        ).fetchall()
+    return [
+        {
+            "action_type": str(r[0]),
+            "target": str(r[1]),
+            "count": int(r[2]),
+            "last_used": str(r[3]),
+        }
+        for r in rows
+    ]
+
+
+def clear_activity_log(db_path: Path = MEMORY_DB_PATH) -> int:
+    """Delete all rows from activity_log and return deleted count."""
+    db_path = Path(db_path)
+    if not db_path.exists():
+        return 0
+    with sqlite3.connect(str(db_path)) as conn:
+        _init_db(conn)
+        cur = conn.execute("DELETE FROM activity_log")
+        conn.commit()
+        return int(cur.rowcount)
+
+
+def set_preference(
+    pref_key: str,
+    pref_value: str,
+    source: str = "explicit",
+    db_path: Path = MEMORY_DB_PATH,
+) -> str:
+    """Insert or update a learned/explicit user preference in local SQLite."""
+    key = " ".join(str(pref_key).strip().lower().split())[:80]
+    val = " ".join(str(pref_value).strip().split())[:300]
+    if not key or not val:
+        return "Preference key and value cannot be empty."
+    db_path = Path(db_path)
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    with sqlite3.connect(str(db_path)) as conn:
+        _init_db(conn)
+        conn.execute(
+            """
+            INSERT INTO user_preferences (pref_key, pref_value, source, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(pref_key) DO UPDATE SET
+                pref_value = excluded.pref_value,
+                source = excluded.source,
+                updated_at = excluded.updated_at
+            """,
+            (key, val, str(source)[:40], now_iso),
+        )
+        conn.commit()
+    return f"Saved preference `{key}` = `{val}`."
+
+
+def list_preferences(db_path: Path = MEMORY_DB_PATH, limit: int = 50) -> list[dict]:
+    """Return stored user preferences ordered by most recently updated."""
+    db_path = Path(db_path)
+    if not db_path.exists():
+        return []
+    with sqlite3.connect(str(db_path)) as conn:
+        _init_db(conn)
+        rows = conn.execute(
+            """
+            SELECT id, pref_key, pref_value, source, updated_at
+            FROM user_preferences
+            ORDER BY updated_at DESC, id DESC
+            LIMIT ?
+            """,
+            (int(limit),),
+        ).fetchall()
+    return [
+        {
+            "id": int(r[0]),
+            "pref_key": str(r[1]),
+            "pref_value": str(r[2]),
+            "source": str(r[3]),
+            "updated_at": str(r[4]),
+        }
+        for r in rows
+    ]
+
+
+def delete_preference_by_id(pref_id: int, db_path: Path = MEMORY_DB_PATH) -> bool:
+    """Delete a single learned/explicit preference row by ID."""
+    db_path = Path(db_path)
+    if not db_path.exists():
+        return False
+    with sqlite3.connect(str(db_path)) as conn:
+        _init_db(conn)
+        cur = conn.execute("DELETE FROM user_preferences WHERE id = ?", (int(pref_id),))
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def clear_all_preferences(db_path: Path = MEMORY_DB_PATH) -> int:
+    """Delete all stored user preferences and return the count removed."""
+    db_path = Path(db_path)
+    if not db_path.exists():
+        return 0
+    with sqlite3.connect(str(db_path)) as conn:
+        _init_db(conn)
+        cur = conn.execute("DELETE FROM user_preferences")
+        conn.commit()
+        return int(cur.rowcount)
+
+
+_WORD_STYLE_CUES: list[tuple[tuple[str, ...], str]] = [
+    (("concise", "brief", "shorter", "short", "tighter", "summarize"), "concise"),
+    (("formal", "professional", "executive", "polished"), "formal"),
+    (("academic", "scholarly", "ieee", "apa", "citation"), "academic"),
+    (("bullet", "bullets", "bulleted", "points"), "bulleted"),
+    (("simple", "plain", "casual", "easy"), "simple/casual"),
+    (("detail", "detailed", "expand", "thorough", "longer"), "detailed"),
+]
+
+
+def infer_word_style_preference(
+    instruction: str,
+    before_text: str,
+    after_text: str,
+    db_path: Path = MEMORY_DB_PATH,
+) -> str | None:
+    """Infer Word editing style preference from an accepted edit and persist it."""
+    low = (instruction or "").lower()
+    detected: list[str] = []
+    for keywords, label in _WORD_STYLE_CUES:
+        if any(re.search(rf"\b{re.escape(k)}\b", low) for k in keywords):
+            detected.append(label)
+
+    # Secondary structural inference when user shortens or converts to bullets
+    if not detected and before_text and after_text:
+        bullet_lines = sum(
+            1 for ln in after_text.splitlines() if re.match(r"^\s*[-•*]\s+", ln)
+        )
+        if bullet_lines >= 2:
+            detected.append("bulleted")
+        elif len(after_text) < max(30, int(len(before_text) * 0.65)):
+            detected.append("concise")
+
+    if not detected:
+        return None
+
+    style_val = ", ".join(dict.fromkeys(detected))
+    set_preference("word_edit_style", style_val, source="inferred_word_edit", db_path=db_path)
+    return style_val
+
+
+def build_user_profile_context(db_path: Path = MEMORY_DB_PATH) -> str:
+    """Build a compact <=4-line profile summary of preferences and frequent actions."""
+    prefs = list_preferences(db_path=db_path, limit=3)
+    habits = get_frequent_activities(db_path=db_path, limit=3)
+    lines: list[str] = []
+    if prefs:
+        pref_str = "; ".join(f"{p['pref_key']}={p['pref_value']}" for p in prefs)
+        lines.append(f"Learned Preferences: {pref_str[:220]}")
+    if habits:
+        habit_str = ", ".join(f"{h['target']} ({h['count']}x)" for h in habits)
+        lines.append(f"Frequent Targets: {habit_str[:220]}")
+    return "\n".join(lines[:4])

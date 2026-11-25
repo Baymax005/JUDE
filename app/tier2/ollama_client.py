@@ -8,33 +8,50 @@ from pathlib import Path
 
 import requests
 
-from app.config import OLLAMA_BASE_URL, OLLAMA_KEEP_ALIVE, OLLAMA_MODEL, OLLAMA_MODELS_DIR
+from app.config import OLLAMA_BASE_URL, OLLAMA_KEEP_ALIVE, OLLAMA_MODEL, OLLAMA_MODELS_DIR, OLLAMA_NUM_CTX
 
 JUDE_SYSTEM_PROMPT = (
-    "You are J.U.D.E., a concise, practical, local-first Windows 11 desktop AI assistant. "
-    "Always identify yourself strictly as J.U.D.E. (never say Qwen or Alibaba Cloud). "
-    "Answer requests directly and helpfully—when asked for ideas, code, or explanations, "
-    "provide them right away instead of asking redundant questions back."
+    "You are J.U.D.E., a capable, concise, local-first Windows 11 personal desktop AI agent "
+    "with VMware Linux guest control. Always identify yourself strictly as J.U.D.E. "
+    "(never say Qwen or Alibaba Cloud). Answer directly, use available tools when acting on "
+    "files, Word, apps, terminal, web, memory, or VMware Linux VMs, and keep replies conversational "
+    "and clear without dumping raw markdown symbols for speech."
 )
 
 
 class OllamaClient:
-    """Lightweight HTTP client for local Ollama with lazy auto-start and short turn history."""
+    """HTTP client for local Ollama supporting chat, native tool-calling, and num_ctx=4096."""
 
     def __init__(
         self,
         base_url: str = OLLAMA_BASE_URL,
         model: str = OLLAMA_MODEL,
         keep_alive: str = OLLAMA_KEEP_ALIVE,
+        num_ctx: int = OLLAMA_NUM_CTX,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.keep_alive = keep_alive
+        self.num_ctx = int(num_ctx)
         self._history: list[dict[str, str]] = []
 
     def clear_history(self) -> None:
         """Clear conversational turn history."""
         self._history.clear()
+
+    def record_turn(self, user_text: str, assistant_text: str) -> None:
+        """Store a concise conversation turn in rolling history (capped at 8 turns)."""
+        u = " ".join((user_text or "").split())[:500]
+        a = " ".join((assistant_text or "").split())[:900]
+        if not u or not a:
+            return
+        self._history.append({"role": "user", "content": u})
+        self._history.append({"role": "assistant", "content": a})
+        if len(self._history) > 16:
+            self._history = self._history[-16:]
+
+    def get_history(self) -> list[dict[str, str]]:
+        return list(self._history[-12:])
 
     def is_reachable(self, timeout: float = 2.0) -> bool:
         try:
@@ -82,7 +99,7 @@ class OllamaClient:
         self,
         prompt: str,
         system: str | None = None,
-        temperature: float = 0.3,
+        temperature: float = 0.25,
         max_tokens: int = 600,
         use_history: bool = True,
     ) -> str:
@@ -108,6 +125,7 @@ class OllamaClient:
                     "options": {
                         "temperature": temperature,
                         "num_predict": max_tokens,
+                        "num_ctx": self.num_ctx,
                     },
                     "messages": messages,
                 },
@@ -116,10 +134,45 @@ class OllamaClient:
             resp.raise_for_status()
             content = resp.json().get("message", {}).get("content", "").strip()
             if content and use_history:
-                self._history.append({"role": "user", "content": prompt})
-                self._history.append({"role": "assistant", "content": content})
-                if len(self._history) > 10:
-                    self._history = self._history[-10:]
+                self.record_turn(prompt, content)
             return content or "Tier 2 returned an empty response."
         except requests.RequestException as exc:
             return f"Local Tier 2 request failed: {exc}"
+
+    def chat_with_tools(
+        self,
+        messages: list[dict],
+        tools: list[dict],
+        temperature: float = 0.2,
+        max_tokens: int = 600,
+    ) -> dict:
+        """Send a native Ollama /api/chat tool-calling turn and return {'ok', 'message', 'error'}."""
+        if not self.ensure_server_running():
+            return {
+                "ok": False,
+                "message": {},
+                "error": "Local Tier 2 engine (Ollama) is not reachable on localhost:11434.",
+            }
+
+        try:
+            resp = requests.post(
+                f"{self.base_url}/api/chat",
+                json={
+                    "model": self.model,
+                    "stream": False,
+                    "keep_alive": self.keep_alive,
+                    "tools": tools,
+                    "options": {
+                        "temperature": temperature,
+                        "num_predict": max_tokens,
+                        "num_ctx": self.num_ctx,
+                    },
+                    "messages": messages,
+                },
+                timeout=90,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            return {"ok": True, "message": data.get("message") or {}, "error": ""}
+        except requests.RequestException as exc:
+            return {"ok": False, "message": {}, "error": f"Local Tier 2 request failed: {exc}"}
