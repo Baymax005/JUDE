@@ -45,6 +45,7 @@ class JudeAvatarWidget(QWidget):
 
     clicked = Signal()
     drag_moved = Signal(QPoint)
+    context_menu_requested = Signal(QPoint)
 
     def __init__(self, parent: QWidget | None = None, size: int = 108) -> None:
         super().__init__(parent)
@@ -110,6 +111,10 @@ class JudeAvatarWidget(QWidget):
         if event.button() == Qt.MouseButton.LeftButton:
             self._drag_origin = event.globalPosition().toPoint()
             self._drag_distance = 0
+            event.accept()
+            return
+        if event.button() == Qt.MouseButton.RightButton:
+            self.context_menu_requested.emit(event.globalPosition().toPoint())
             event.accept()
             return
         super().mousePressEvent(event)

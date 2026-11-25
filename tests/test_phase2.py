@@ -43,6 +43,22 @@ def test_tier1_memory_and_sysinfo() -> None:
         assert rec.tier_used == "tier1", rec
         assert "Hall C-204" in rec.reply, rec.reply
 
+        mem_all = engine.process("What is inside your memory?")
+        assert mem_all.tier_used == "tier1" and "Hall C-204" in mem_all.reply, mem_all
+
+        del_res = engine.process("Forget my capstone meeting room")
+        assert del_res.tier_used == "tier1" and "Removed from memory" in del_res.reply, del_res
+
+        from app.tier1.memory import clear_all_memories, delete_memory_by_id, list_memories
+        remaining = list_memories(db_path=tmp / "memory.db")
+        assert len(remaining) == 1, remaining
+        assert delete_memory_by_id(remaining[0]["id"], db_path=tmp / "memory.db")
+        assert clear_all_memories(db_path=tmp / "memory.db") == 0
+
+        from app.tier1.actions import open_target
+        ok_drive, msg_drive = open_target("Take me to local disk C", dry_run=True)
+        assert ok_drive and "C:\\" in msg_drive, (ok_drive, msg_drive)
+
         sys_res = engine.process("How much free space is left on my main drive?")
         assert sys_res.tier_used == "tier1", sys_res
         assert "GB free" in sys_res.reply, sys_res.reply
@@ -116,8 +132,9 @@ def test_word_editor_backup_and_safety() -> None:
             before_text="Old rough draft text.",
             backups_dir=backup_dir,
         )
-        assert backup_path.exists()
-        txt_backups = list(backup_dir.glob("*.bak.txt"))
+        assert backup_path.exists() and backup_path.name.endswith(".undo.txt")
+        assert list(backup_dir.glob("*.docx")) == [], "Must NOT copy full .docx files to backups!"
+        txt_backups = list(backup_dir.glob("*.undo.txt"))
         assert len(txt_backups) == 1 and "Old rough draft text." in txt_backups[0].read_text(encoding="utf-8")
 
         # Confirm prepare_word_edit handles closed/missing Word safely without crashing
@@ -201,9 +218,15 @@ def test_pure_qpainter_jude_and_zero_images() -> None:
     win.show()
     app.processEvents()
     assert not win.hud_card.isVisible()
+    assert hasattr(win, "close_btn") and hasattr(win, "memory_btn")
     win.toggle_hud()
     app.processEvents()
     assert win.hud_card.isVisible()
+
+    from app.ui.memory_dialog import MemoryManagerDialog
+    mem_dlg = MemoryManagerDialog(win.engine.memory_db_path, win)
+    mem_dlg.close()
+
     win.toggle_mic()
     win.toggle_mute()
     win._quit_app()

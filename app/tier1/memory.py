@@ -34,6 +34,14 @@ _RECALL_PREFIX_RE = re.compile(
     flags=re.IGNORECASE,
 )
 
+_DELETE_PREFIX_RE = re.compile(
+    r"^(?:(?:hey\s+)?jude[\s,]+)?(?:uh\s+)?(?:please\s+|can\s+you\s+)?"
+    r"(?:forget(?:\s+that|\s+about)?|delete|remove|erase|clear)\s+"
+    r"(?:(?:my|the)\s+(?:saved\s+)?)?(?:memory|memories|fact|note|notes|entry|info)?\s*"
+    r"(?:about|regarding|for|from\s+(?:your\s+|my\s+)?memory)?\s*[:,-]?\s*",
+    flags=re.IGNORECASE,
+)
+
 
 def _init_db(conn: sqlite3.Connection) -> bool:
     """Ensure the memories table and optional FTS5 index exist. Returns True if FTS5 is active."""
@@ -86,8 +94,12 @@ def extract_memory_fact(text: str) -> tuple[str, str]:
     if not fact:
         fact = cleaned
 
-    # Derive a concise key phrase (subject before 'is'/'as'/'on'/'at' or first meaningful tokens)
-    split_match = re.split(r"\s+(?:is|are|as|was|runs\s+on|lives\s+at|meets|opens|closes)\s+", fact, maxsplit=1, flags=re.I)
+    split_match = re.split(
+        r"\s+(?:is|are|as|was|runs\s+on|lives\s+at|meets|opens|closes)\s+",
+        fact,
+        maxsplit=1,
+        flags=re.I,
+    )
     if len(split_match) == 2 and len(split_match[0].split()) <= 8:
         key_phrase = split_match[0].strip(" .:,")
     else:
@@ -126,6 +138,125 @@ def save_memory(text: str, db_path: Path = MEMORY_DB_PATH) -> str:
     return f"Saved to memory: \"{fact_text}\""
 
 
+def list_memories(db_path: Path = MEMORY_DB_PATH, limit: int = 100) -> list[dict]:
+    """Return saved memories ordered newest-first."""
+    db_path = Path(db_path)
+    if not db_path.exists():
+        return []
+    with sqlite3.connect(str(db_path)) as conn:
+        _init_db(conn)
+        rows = conn.execute(
+            "SELECT id, fact_text, key_phrase, created_at FROM memories ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    return [
+        {
+            "id": int(r[0]),
+            "fact_text": str(r[1]),
+            "key_phrase": str(r[2]),
+            "created_at": str(r[3]),
+        }
+        for r in rows
+    ]
+
+
+def delete_memory_by_id(mem_id: int, db_path: Path = MEMORY_DB_PATH) -> bool:
+    """Delete a single memory row by ID (keeping FTS5 index synced via trigger)."""
+    db_path = Path(db_path)
+    if not db_path.exists():
+        return False
+    with sqlite3.connect(str(db_path)) as conn:
+        _init_db(conn)
+        cur = conn.execute("DELETE FROM memories WHERE id = ?", (int(mem_id),))
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def clear_all_memories(db_path: Path = MEMORY_DB_PATH) -> int:
+    """Delete all saved memories and return the number of rows removed."""
+    db_path = Path(db_path)
+    if not db_path.exists():
+        return 0
+    with sqlite3.connect(str(db_path)) as conn:
+        _init_db(conn)
+        cur = conn.execute("DELETE FROM memories")
+        conn.commit()
+        return int(cur.rowcount)
+
+
+def _search_memory_rows(
+    conn: sqlite3.Connection, has_fts: bool, tokens: list[str], limit: int
+) -> list[tuple[int, str, str]]:
+    matches: list[tuple[int, str, str]] = []
+    if has_fts and tokens:
+        fts_query = " OR ".join(f'"{t}"*' for t in tokens[:8])
+        try:
+            matches = conn.execute(
+                """
+                SELECT m.id, m.fact_text, m.created_at
+                FROM memories_fts f
+                JOIN memories m ON m.id = f.rowid
+                WHERE memories_fts MATCH ?
+                ORDER BY bm25(memories_fts), m.id DESC
+                LIMIT ?
+                """,
+                (fts_query, limit),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            matches = []
+
+    if not matches and tokens:
+        all_rows = conn.execute(
+            "SELECT id, fact_text, key_phrase, created_at FROM memories ORDER BY id DESC"
+        ).fetchall()
+        scored: list[tuple[int, int, str, str]] = []
+        for row_id, fact, key_phrase, created_at in all_rows:
+            hay = f"{fact} {key_phrase}".lower()
+            score = sum(1 for tok in tokens if tok in hay)
+            if score > 0:
+                scored.append((score, row_id, fact, created_at))
+        scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+        matches = [(row_id, fact, created_at) for _, row_id, fact, created_at in scored[:limit]]
+
+    return matches
+
+
+def delete_memory_by_query(text: str, db_path: Path = MEMORY_DB_PATH) -> str:
+    """Remove matching saved memory entries by natural-language description."""
+    db_path = Path(db_path)
+    if not db_path.exists():
+        return "Your local memory is already empty."
+
+    cleaned = " ".join(text.strip().split())
+    low = cleaned.lower()
+    if any(p in low for p in ("all memories", "everything in memory", "clear all memory", "wipe memory")):
+        return "For safety, open the **Memory** button in the top bar and click **Clear All** to wipe every saved memory."
+
+    stripped = _DELETE_PREFIX_RE.sub("", cleaned).strip(" ?.!,").lower()
+    stripped = re.sub(r"\s+from\s+(?:your\s+|my\s+)?memory$", "", stripped, flags=re.I).strip()
+    tokens = [
+        t for t in re.findall(r"[a-zA-Z0-9_-]+", stripped)
+        if t not in _STOPWORDS and len(t) >= 2
+    ]
+    if not tokens:
+        return "Tell me which memory to remove (for example: `Forget my roll number`), or click **Memory** to delete entries manually."
+
+    with sqlite3.connect(str(db_path)) as conn:
+        has_fts = _init_db(conn)
+        matches = _search_memory_rows(conn, has_fts, tokens, limit=3)
+        if not matches:
+            return "I couldn't find a matching memory to remove."
+
+        # Delete the best-matching row (or multiple if exact phrase appears in multiple duplicates)
+        removed_texts: list[str] = []
+        target_id, target_fact, _ = matches[0]
+        conn.execute("DELETE FROM memories WHERE id = ?", (target_id,))
+        removed_texts.append(target_fact)
+        conn.commit()
+
+    return f"Removed from memory: \"{removed_texts[0]}\""
+
+
 def recall_memory(text: str, db_path: Path = MEMORY_DB_PATH, limit: int = 5) -> str:
     """Search local SQLite memory using FTS5 with token-overlap fallback."""
     db_path = Path(db_path)
@@ -133,62 +264,45 @@ def recall_memory(text: str, db_path: Path = MEMORY_DB_PATH, limit: int = 5) -> 
         return "I don't have any saved memories yet."
 
     cleaned = " ".join(text.strip().split())
+    low = cleaned.lower()
     stripped = _RECALL_PREFIX_RE.sub("", cleaned).strip(" ?.!,").lower()
 
     with sqlite3.connect(str(db_path)) as conn:
         has_fts = _init_db(conn)
 
-        # Handle broad queries ("what did i save", "list memories")
-        if any(p in cleaned.lower() for p in ("all saved", "everything you remember", "what is saved", "list memories")):
+        broad_triggers = (
+            "all saved",
+            "everything you remember",
+            "what is saved",
+            "list memories",
+            "list my memories",
+            "inside your memory",
+            "in your memory",
+            "my memories",
+            "show memory",
+            "show my memory",
+            "what do you remember",
+        )
+        if any(p in low for p in broad_triggers):
             rows = conn.execute(
-                "SELECT fact_text, created_at FROM memories ORDER BY id DESC LIMIT ?",
-                (limit,),
+                "SELECT fact_text, created_at FROM memories ORDER BY id DESC LIMIT 20"
             ).fetchall()
             if not rows:
                 return "I don't have any saved memories yet."
             lines = [f"- {fact}" for fact, _ in rows]
-            return "Here are your most recent saved memories:\n" + "\n".join(lines)
+            return f"Local memory ({len(rows)} item(s)):\n" + "\n".join(lines)
 
         tokens = [
             t for t in re.findall(r"[a-zA-Z0-9_-]+", stripped)
             if t not in _STOPWORDS and len(t) >= 2
         ]
         if not tokens:
-            tokens = [t for t in re.findall(r"[a-zA-Z0-9_-]+", cleaned.lower()) if t not in _STOPWORDS]
+            tokens = [t for t in re.findall(r"[a-zA-Z0-9_-]+", low) if t not in _STOPWORDS]
 
-        matches: list[tuple[str, str]] = []
-        if has_fts and tokens:
-            fts_query = " OR ".join(f'"{t}"*' for t in tokens[:8])
-            try:
-                matches = conn.execute(
-                    """
-                    SELECT m.fact_text, m.created_at
-                    FROM memories_fts f
-                    JOIN memories m ON m.id = f.rowid
-                    WHERE memories_fts MATCH ?
-                    ORDER BY bm25(memories_fts), m.id DESC
-                    LIMIT ?
-                    """,
-                    (fts_query, limit),
-                ).fetchall()
-            except sqlite3.OperationalError:
-                matches = []
-
-        if not matches and tokens:
-            all_rows = conn.execute(
-                "SELECT fact_text, key_phrase, created_at FROM memories ORDER BY id DESC"
-            ).fetchall()
-            scored: list[tuple[int, str, str]] = []
-            for fact, key_phrase, created_at in all_rows:
-                hay = f"{fact} {key_phrase}".lower()
-                score = sum(1 for tok in tokens if tok in hay)
-                if score > 0:
-                    scored.append((score, fact, created_at))
-            scored.sort(key=lambda item: item[0], reverse=True)
-            matches = [(fact, created_at) for _, fact, created_at in scored[:limit]]
+        matches = _search_memory_rows(conn, has_fts, tokens, limit=limit)
 
     if not matches:
         return "I couldn't find a matching note in your local memory."
     if len(matches) == 1:
-        return f"From memory: {matches[0][0]}"
-    return "Here is what I found in memory:\n" + "\n".join(f"- {fact}" for fact, _ in matches)
+        return f"From memory: {matches[0][1]}"
+    return "Here is what I found in memory:\n" + "\n".join(f"- {fact}" for _, fact, _ in matches)

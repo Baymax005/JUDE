@@ -66,7 +66,7 @@ def run_web_search(text: str, ollama: OllamaClient, max_results: int = 4) -> tup
         + "\n\n".join(context_blocks)
         + "\n\nAnswer concisely in 2-4 sentences using ONLY the provided search context."
     )
-    summary = ollama.chat(prompt, temperature=0.2, max_tokens=260)
+    summary = ollama.chat(prompt, temperature=0.2, max_tokens=360, use_history=False)
 
     if sources:
         src_lines = "\n".join(f"- [{title}]({url})" for title, url in sources[:3])

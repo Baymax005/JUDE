@@ -10,9 +10,16 @@ import requests
 
 from app.config import OLLAMA_BASE_URL, OLLAMA_KEEP_ALIVE, OLLAMA_MODEL, OLLAMA_MODELS_DIR
 
+JUDE_SYSTEM_PROMPT = (
+    "You are J.U.D.E., a concise, practical, local-first Windows 11 desktop AI assistant. "
+    "Always identify yourself strictly as J.U.D.E. (never say Qwen or Alibaba Cloud). "
+    "Answer requests directly and helpfully—when asked for ideas, code, or explanations, "
+    "provide them right away instead of asking redundant questions back."
+)
+
 
 class OllamaClient:
-    """Lightweight HTTP client for local Ollama with lazy auto-start."""
+    """Lightweight HTTP client for local Ollama with lazy auto-start and short turn history."""
 
     def __init__(
         self,
@@ -23,6 +30,11 @@ class OllamaClient:
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.keep_alive = keep_alive
+        self._history: list[dict[str, str]] = []
+
+    def clear_history(self) -> None:
+        """Clear conversational turn history."""
+        self._history.clear()
 
     def is_reachable(self, timeout: float = 2.0) -> bool:
         try:
@@ -71,18 +83,19 @@ class OllamaClient:
         prompt: str,
         system: str | None = None,
         temperature: float = 0.3,
-        max_tokens: int = 450,
+        max_tokens: int = 600,
+        use_history: bool = True,
     ) -> str:
-        """Send a single-turn chat request to local Ollama and return the reply text."""
+        """Send a chat request to local Ollama and return the reply text."""
         if not self.ensure_server_running():
             return (
                 "Local Tier 2 engine (Ollama) is not reachable on localhost:11434. "
                 "Start Ollama and try again."
             )
 
-        messages = []
-        if system:
-            messages.append({"role": "system", "content": system})
+        messages: list[dict[str, str]] = [{"role": "system", "content": system or JUDE_SYSTEM_PROMPT}]
+        if use_history and self._history:
+            messages.extend(self._history[-10:])
         messages.append({"role": "user", "content": prompt})
 
         try:
@@ -102,6 +115,11 @@ class OllamaClient:
             )
             resp.raise_for_status()
             content = resp.json().get("message", {}).get("content", "").strip()
+            if content and use_history:
+                self._history.append({"role": "user", "content": prompt})
+                self._history.append({"role": "assistant", "content": content})
+                if len(self._history) > 10:
+                    self._history = self._history[-10:]
             return content or "Tier 2 returned an empty response."
         except requests.RequestException as exc:
             return f"Local Tier 2 request failed: {exc}"

@@ -19,9 +19,9 @@ from app.config import (
 )
 from app.router.intent_router import IntentRouter, RouteResult
 from app.tier1.actions import execute_compression, get_system_info, open_target, plan_compression
-from app.tier1.memory import recall_memory, save_memory
+from app.tier1.memory import delete_memory_by_query, recall_memory, save_memory
 from app.tier2.ollama_client import OllamaClient
-from app.tier2.screen_reader import explain_screen
+from app.tier2.screen_reader import explain_screen, read_highlighted_text
 from app.tier2.web_search import run_web_search
 from app.tier2.word_editor import apply_word_edit, prepare_word_edit
 
@@ -164,6 +164,44 @@ def _match_quick_social(cleaned: str) -> str | None:
     return None
 
 
+_MEMORY_LIST_RE = re.compile(
+    r"\b(?:what(?:'s|\s+is)\s+(?:inside|in)\s+your\s+memory|(?:show|list)\s+(?:my\s+)?memor(?:y|ies)|what\s+do\s+you\s+remember)\b",
+    flags=re.IGNORECASE,
+)
+_MEMORY_DELETE_RE = re.compile(
+    r"^(?:(?:hey\s+)?jude[\s,]+)?(?:uh\s+)?(?:please\s+|can\s+you\s+)?"
+    r"(?:forget\b|(?:delete|remove|erase|clear)\s+(?:[\w\s]+\s+)?memor(?:y|ies)\b|(?:delete|remove|erase)\s+(?:my|the)\s+(?:saved\s+)?)",
+    flags=re.IGNORECASE,
+)
+_DRIVE_OPEN_RE = re.compile(
+    r"\b(?:open|take\s+me\s+to|go\s+(?:to|in))\s+(?:local\s+disk\s+[a-z]|[a-z]\s+drive|drive\s+[a-z])\b",
+    flags=re.IGNORECASE,
+)
+_WORD_EDIT_RE = re.compile(
+    r"\bword\s+doc(?:ument)?\b.*\b(?:fill|edit|rewrite|polish|update|change|insert|fix|shorten)\b"
+    r"|\b(?:fill|edit|rewrite|polish|update|change|insert|fix|shorten)\b.*\bword\s+doc(?:ument)?\b",
+    flags=re.IGNORECASE,
+)
+
+
+def _match_deterministic_guard(cleaned: str) -> tuple[str, str] | None:
+    """Catch high-value commands deterministically before the 9-class ONNX classifier."""
+    low = cleaned.lower()
+    if _MEMORY_LIST_RE.search(low):
+        return ("RECALL_MEMORY", "tier1")
+    if _MEMORY_DELETE_RE.search(low):
+        return ("DELETE_MEMORY", "tier1")
+    if ("highlight" in low or "selected" in low) and "read" in low and not any(
+        w in low for w in ("edit", "rewrite", "polish", "shorten", "fix")
+    ):
+        return ("READ_SELECTION", "tier1")
+    if _DRIVE_OPEN_RE.search(low):
+        return ("OPEN_TARGET", "tier1")
+    if _WORD_EDIT_RE.search(low):
+        return ("EDIT_DOCUMENT", "tier2")
+    return None
+
+
 class JudeEngine:
     """Two-tier J.U.D.E. orchestrator connecting ONNX Tier 1 routing to Tier 1/2 handlers."""
 
@@ -210,11 +248,16 @@ class JudeEngine:
         with self.feedback_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(record) + "\n")
 
-    def _run_tier1_action(self, intent: str, text: str) -> str:
+    def _run_tier1_action(self, intent: str, text: str, target_hwnd: int | None = None) -> str:
         if intent == "SAVE_MEMORY":
             return save_memory(text, db_path=self.memory_db_path)
         if intent == "RECALL_MEMORY":
             return recall_memory(text, db_path=self.memory_db_path)
+        if intent == "DELETE_MEMORY":
+            return delete_memory_by_query(text, db_path=self.memory_db_path)
+        if intent == "READ_SELECTION":
+            _, msg = read_highlighted_text(target_hwnd=target_hwnd)
+            return msg
         if intent == "OPEN_TARGET":
             _, msg = open_target(text)
             return msg
@@ -255,7 +298,36 @@ class JudeEngine:
                 badge_text=f"Tier 1 · Instant · {total_ms:.1f} ms",
             )
 
-        route = self.router.predict(cleaned)
+        guard = _match_deterministic_guard(cleaned)
+        if guard is not None:
+            guard_intent, guard_tier = guard
+            route = RouteResult(
+                text=cleaned,
+                intent=guard_intent,
+                tier=guard_tier,
+                confidence=1.0,
+                gate_action="direct",
+                effective_tier=guard_tier,
+                latency_ms=0.1,
+                provider="RuleGuard",
+                top_candidates=[(guard_intent, 1.0)],
+            )
+            if guard_tier == "tier1":
+                reply = self._run_tier1_action(guard_intent, cleaned, target_hwnd=target_hwnd)
+                total_ms = (time.perf_counter() - t_start) * 1000.0
+                return EngineResponse(
+                    reply=reply,
+                    spoken_summary=_spoken_excerpt(reply),
+                    intent=guard_intent,
+                    tier_used="tier1",
+                    confidence=1.0,
+                    gate_action="direct",
+                    router_ms=0.1,
+                    total_ms=total_ms,
+                    badge_text=f"Tier 1 · Fast · {total_ms:.1f} ms",
+                )
+        else:
+            route = self.router.predict(cleaned)
 
         # Low confidence (<0.55): escalate safely to Tier 2 general reasoning
         if route.gate_action == "escalate":
@@ -368,7 +440,7 @@ class JudeEngine:
 
         # Tier 2: EDIT_DOCUMENT always stages a diff preview + confirmation first
         if route.intent == "EDIT_DOCUMENT":
-            prep = prepare_word_edit(cleaned, self.ollama)
+            prep = prepare_word_edit(cleaned, self.ollama, memory_db_path=self.memory_db_path)
             total_ms = (time.perf_counter() - t_start) * 1000.0
             if not prep.get("ok"):
                 err = prep.get("error", "Could not inspect Microsoft Word.")
@@ -389,11 +461,11 @@ class JudeEngine:
                 id=pid,
                 kind="word_edit",
                 title=f"Confirm Word Edit ({prep['doc_name']})",
-                summary="Review the proposed revision below. A timestamped backup will be saved first.",
+                summary="Review the proposed revision below. A lightweight text undo snapshot will be saved first.",
                 intent=route.intent,
                 confidence=route.confidence,
                 target_path=prep["doc_full_path"] or prep["doc_name"],
-                backup_note=f"Auto-backup saved into {self.backups_dir.name}/ before applying.",
+                backup_note=f"Text undo snapshot saved into {self.backups_dir.name}/ before applying.",
                 before_text=prep["before_text"],
                 after_text=prep["after_text"],
                 payload={**prep, "original_text": cleaned, "router_ms": route.latency_ms},

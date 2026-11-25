@@ -181,8 +181,14 @@ def _extract_path_candidate(text: str) -> Path | None:
     return None
 
 
+_DRIVE_PHRASE_RE = re.compile(
+    r"\b(?:local\s+disk|drive)\s+([a-z])\b|\b([a-z])\s+drive\b",
+    flags=re.IGNORECASE,
+)
+
+
 def open_target(text: str, dry_run: bool = False) -> tuple[bool, str]:
-    """Open a whitelisted app/settings URI or an existing folder/document safely."""
+    """Open a whitelisted app/settings URI, drive root, or existing folder/document safely."""
     low = text.lower()
 
     # Check explicit existing path first if a drive path or subfolder is named
@@ -193,6 +199,17 @@ def open_target(text: str, dry_run: bool = False) -> tuple[bool, str]:
         if not dry_run:
             os.startfile(str(path_cand))
         return True, f"Opened `{path_cand}`."
+
+    # Check spoken drive requests ("local disk D", "D drive", "drive C")
+    drive_match = _DRIVE_PHRASE_RE.search(text)
+    if drive_match:
+        letter = (drive_match.group(1) or drive_match.group(2) or "").upper()
+        drive_root = Path(f"{letter}:\\")
+        if drive_root.exists():
+            if not dry_run:
+                os.startfile(str(drive_root))
+            return True, f"Opened `{drive_root}` in File Explorer."
+        return False, f"Drive `{letter}:` is not available on this PC."
 
     for keywords, target_cmd, display_name in _APP_TARGETS:
         if any(re.search(rf"\b{re.escape(kw)}\b", low) for kw in keywords):

@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 from app.engine import EngineResponse, JudeEngine
 from app.ui.confirm_dialog import ConfirmationDialog
 from app.ui.jude_avatar import AvatarState, JudeAvatarWidget, build_jude_tray_icon
+from app.ui.memory_dialog import MemoryManagerDialog
 from app.voice.listener import VoiceListener
 from app.voice.tts import VoiceSpeaker
 
@@ -102,7 +103,7 @@ class JudeFloatingWindow(QWidget):
         # Expandable HUD Card (hidden in compact floating mode)
         self.hud_card = QFrame()
         self.hud_card.setObjectName("hudCard")
-        self.hud_card.setFixedWidth(400)
+        self.hud_card.setFixedWidth(440)
         self.hud_card.setStyleSheet(
             """
             QFrame#hudCard {
@@ -136,6 +137,20 @@ class JudeFloatingWindow(QWidget):
             }
             QPushButton.iconBtn:hover {
                 background-color: #334155;
+            }
+            QPushButton#closeBtn {
+                background-color: #1E293B;
+                color: #FCA5A5;
+                border: 1px solid #334155;
+                border-radius: 8px;
+                padding: 4px 9px;
+                font-size: 12px;
+                font-weight: 700;
+            }
+            QPushButton#closeBtn:hover {
+                background-color: #DC2626;
+                color: #FFFFFF;
+                border-color: #EF4444;
             }
             QPushButton.chipBtn {
                 background-color: #1E293B;
@@ -195,6 +210,16 @@ class JudeFloatingWindow(QWidget):
         self.tier_badge = QLabel("Ready")
         self.tier_badge.setObjectName("tierBadge")
 
+        self.memory_btn = QPushButton("Memory")
+        self.memory_btn.setProperty("class", "iconBtn")
+        self.memory_btn.setToolTip("View or delete saved local memories")
+        self.memory_btn.clicked.connect(self.open_memory_manager)
+
+        self.clear_btn = QPushButton("Clear")
+        self.clear_btn.setProperty("class", "iconBtn")
+        self.clear_btn.setToolTip("Clear chat history")
+        self.clear_btn.clicked.connect(self.clear_chat)
+
         self.hud_mic_btn = QPushButton()
         self.hud_mic_btn.setProperty("class", "iconBtn")
         self.hud_mic_btn.clicked.connect(self.toggle_mic)
@@ -208,12 +233,20 @@ class JudeFloatingWindow(QWidget):
         collapse_btn.setToolTip("Collapse to floating J.U.D.E. widget")
         collapse_btn.clicked.connect(self.toggle_hud)
 
+        self.close_btn = QPushButton("✕")
+        self.close_btn.setObjectName("closeBtn")
+        self.close_btn.setToolTip("Close & Quit J.U.D.E.")
+        self.close_btn.clicked.connect(self._quit_app)
+
         header_row.addWidget(brand_lbl)
         header_row.addWidget(self.tier_badge, 0, Qt.AlignmentFlag.AlignLeft)
         header_row.addStretch(1)
+        header_row.addWidget(self.memory_btn)
+        header_row.addWidget(self.clear_btn)
         header_row.addWidget(self.hud_mic_btn)
         header_row.addWidget(self.hud_mute_btn)
         header_row.addWidget(collapse_btn)
+        header_row.addWidget(self.close_btn)
         hud_layout.addLayout(header_row)
 
         self.chat_view = QTextBrowser()
@@ -258,6 +291,7 @@ class JudeFloatingWindow(QWidget):
         self.avatar = JudeAvatarWidget(self, size=108)
         self.avatar.clicked.connect(self.toggle_hud)
         self.avatar.drag_moved.connect(self._on_avatar_dragged)
+        self.avatar.context_menu_requested.connect(self._show_avatar_menu)
         dock_col.addWidget(self.avatar, 0, Qt.AlignmentFlag.AlignCenter)
 
         dock_pills = QHBoxLayout()
@@ -305,9 +339,22 @@ class JudeFloatingWindow(QWidget):
         tray = QSystemTrayIcon(build_jude_tray_icon(), self)
         tray.setToolTip("J.U.D.E. Desktop Assistant")
 
-        menu = QMenu()
+        menu = self._build_context_menu()
+        tray.setContextMenu(menu)
+        tray.activated.connect(
+            lambda reason: self.toggle_hud()
+            if reason == QSystemTrayIcon.ActivationReason.Trigger
+            else None
+        )
+        tray.show()
+        self.tray_icon = tray
+
+    def _build_context_menu(self) -> QMenu:
+        menu = QMenu(self)
         toggle_act = QAction("Show / Hide J.U.D.E. Panel", self)
         toggle_act.triggered.connect(self.toggle_hud)
+        memory_act = QAction("Manage Memories...", self)
+        memory_act.triggered.connect(self.open_memory_manager)
         mic_act = QAction("Toggle Microphone", self)
         mic_act.triggered.connect(self.toggle_mic)
         mute_act = QAction("Toggle Voice Mute", self)
@@ -318,20 +365,28 @@ class JudeFloatingWindow(QWidget):
         quit_act.triggered.connect(self._quit_app)
 
         menu.addAction(toggle_act)
+        menu.addAction(memory_act)
         menu.addAction(mic_act)
         menu.addAction(mute_act)
         menu.addAction(reset_act)
         menu.addSeparator()
         menu.addAction(quit_act)
+        return menu
 
-        tray.setContextMenu(menu)
-        tray.activated.connect(
-            lambda reason: self.toggle_hud()
-            if reason == QSystemTrayIcon.ActivationReason.Trigger
-            else None
-        )
-        tray.show()
-        self.tray_icon = tray
+    def _show_avatar_menu(self, global_pos: QPoint) -> None:
+        menu = self._build_context_menu()
+        menu.exec(global_pos)
+
+    def open_memory_manager(self) -> None:
+        dlg = MemoryManagerDialog(self.engine.memory_db_path, self)
+        dlg.exec()
+
+    def clear_chat(self) -> None:
+        self._history_html.clear()
+        self.chat_view.clear()
+        self.engine.ollama.clear_history()
+        self.tier_badge.setText("Ready")
+        self._append_system_message("Chat cleared.")
 
     def _snap_bottom_right(self) -> None:
         self.adjustSize()

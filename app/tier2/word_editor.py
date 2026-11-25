@@ -1,17 +1,21 @@
 from __future__ import annotations
 
-import shutil
 from datetime import datetime
 from pathlib import Path
 
 import pythoncom
 import win32com.client
 
-from app.config import BACKUPS_DIR
+from app.config import BACKUPS_DIR, MEMORY_DB_PATH
+from app.tier1.memory import list_memories
 from app.tier2.ollama_client import OllamaClient
 
 
-def prepare_word_edit(instruction: str, ollama: OllamaClient) -> dict:
+def prepare_word_edit(
+    instruction: str,
+    ollama: OllamaClient,
+    memory_db_path: Path = MEMORY_DB_PATH,
+) -> dict:
     """Read active Microsoft Word selection and draft a proposed edit without modifying the file."""
     pythoncom.CoInitialize()
     try:
@@ -52,12 +56,20 @@ def prepare_word_edit(instruction: str, ollama: OllamaClient) -> dict:
             range_start = int(sel.Range.Start)
             range_end = int(sel.Range.End)
 
+        memory_block = ""
+        low = instruction.lower()
+        if any(k in low for k in ("name", "roll", "enroll", "email", "id", "memory", "details", "fill")):
+            saved = list_memories(db_path=memory_db_path, limit=15)
+            if saved:
+                memory_block = "\nSaved user facts:\n" + "\n".join(f"- {m['fact_text']}" for m in saved) + "\n"
+
         prompt = (
-            f"Editing instruction: {instruction}\n\n"
+            f"Editing instruction: {instruction}\n"
+            f"{memory_block}\n"
             f"Original text:\n{before_text}\n\n"
             "Return ONLY the revised text with no commentary, quotes, or markdown headings."
         )
-        after_text = ollama.chat(prompt, temperature=0.25, max_tokens=400).strip()
+        after_text = ollama.chat(prompt, temperature=0.25, max_tokens=450, use_history=False).strip()
 
         return {
             "ok": True,
@@ -78,22 +90,16 @@ def _create_backup_snapshot(
     before_text: str,
     backups_dir: Path = BACKUPS_DIR,
 ) -> Path:
-    """Write a timestamped text backup (and copy the .docx if saved on disk) before modifying Word."""
+    """Write a lightweight text-only undo snapshot (never copying full .docx binaries)."""
     backups_dir = Path(backups_dir)
     backups_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     stem = Path(doc_name).stem or "word_doc"
 
-    txt_backup = backups_dir / f"{stem}_{stamp}.bak.txt"
-    txt_backup.write_text(before_text, encoding="utf-8")
-
-    src_path = Path(doc_full_path) if doc_full_path else None
-    if src_path and src_path.exists() and src_path.is_file():
-        doc_backup = backups_dir / f"{src_path.stem}_{stamp}{src_path.suffix}"
-        shutil.copy2(src_path, doc_backup)
-        return doc_backup
-
-    return txt_backup
+    undo_path = backups_dir / f"{stem}_{stamp}.undo.txt"
+    header = f"Document: {doc_name}\nSource: {doc_full_path}\nTimestamp: {stamp}\n---\n"
+    undo_path.write_text(header + before_text, encoding="utf-8")
+    return undo_path
 
 
 def apply_word_edit(
@@ -101,7 +107,7 @@ def apply_word_edit(
     revised_text: str | None = None,
     backups_dir: Path = BACKUPS_DIR,
 ) -> str:
-    """Create a backup snapshot and apply the confirmed edit into the open Word document."""
+    """Save a lightweight text undo snapshot and apply the confirmed edit into the open Word document."""
     final_text = (revised_text if revised_text is not None else payload.get("after_text", "")).strip()
     if not final_text:
         return "Cancelled edit because the proposed replacement text was empty."
@@ -121,9 +127,9 @@ def apply_word_edit(
         target_range.Text = final_text
         return (
             f"Updated `{payload.get('doc_name', 'document')}` cleanly. "
-            f"Backup saved to `{backup_path}`."
+            f"Undo snapshot saved to `{backup_path.name}`."
         )
     except Exception as exc:
-        return f"Backup saved to `{backup_path}`, but applying to Word failed: {exc}"
+        return f"Undo snapshot saved to `{backup_path.name}`, but applying to Word failed: {exc}"
     finally:
         pythoncom.CoUninitialize()
