@@ -13,12 +13,53 @@ from PySide6.QtCore import QObject, Signal
 
 from app.config import AUDIO_MODELS_DIR
 
-_INITIAL_PROMPT = (
-    "Jude, Hey Jude, Hello Jude, Assalam o Alaikum. Commands: open Chrome, close File Explorer, "
-    "run ipconfig in cmd, explain screen, read highlighted text, remember, recall memory, "
-    "system status, edit Word document, VMware Ubuntu Linux. "
-    "Chrome khol do, File Explorer band karo, cmd chalao, screen samjhao, yeh kya hai."
-)
+_INITIAL_PROMPT = "Jude, WhatsApp, Chrome, Microsoft Word."
+
+_PROMPT_VOCAB = {
+    "jude",
+    "whatsapp",
+    "chrome",
+    "microsoft",
+    "word",
+    "google",
+    "explorer",
+    "terminal",
+    "cmd",
+    "vmware",
+}
+
+_ACTION_VERBS = {
+    "open",
+    "launch",
+    "start",
+    "close",
+    "focus",
+    "run",
+    "type",
+    "execute",
+    "explain",
+    "read",
+    "rewrite",
+    "polish",
+    "edit",
+    "create",
+    "remember",
+    "recall",
+    "delete",
+    "forget",
+    "minimize",
+    "maximize",
+    "restore",
+    "search",
+    "compress",
+    "show",
+    "give",
+    "what",
+    "how",
+    "who",
+    "where",
+    "why",
+}
 
 _HALLUCINATION_PHRASES = {
     "you",
@@ -38,12 +79,60 @@ _HALLUCINATION_PHRASES = {
 }
 
 
+def _preprocess_audio(clip: np.ndarray, sample_rate: int = 16000) -> tuple[np.ndarray, float]:
+    """Remove DC/low rumble with 1-pole HPF (alpha=0.95), measure active RMS, and normalize gain."""
+    x = np.asarray(clip, dtype=np.float32).reshape(-1)
+    if x.size == 0:
+        return x, 0.0
+    x = x - float(np.mean(x))
+
+    alpha = 0.95
+    filtered = np.empty_like(x)
+    y_prev = 0.0
+    x_prev = 0.0
+    for i in range(x.size):
+        xi = float(x[i])
+        y_prev = alpha * (y_prev + xi - x_prev)
+        filtered[i] = y_prev
+        x_prev = xi
+
+    block = max(1, int(sample_rate // 10))
+    n_blocks = filtered.size // block
+    if n_blocks > 0:
+        frames = filtered[: n_blocks * block].reshape(n_blocks, block)
+        frame_rms = np.sqrt(np.mean(frames * frames, axis=1))
+        max_frame_rms = float(np.max(frame_rms))
+    else:
+        max_frame_rms = float(np.sqrt(np.mean(filtered * filtered)))
+
+    max_abs = float(np.max(np.abs(filtered)))
+    if max_abs > 0.015:
+        gain = min(0.85 / max_abs, 12.0)
+        filtered = np.clip(filtered * gain, -1.0, 1.0)
+    return filtered, max_frame_rms
+
+
+def _is_prompt_echo(text: str) -> bool:
+    """Detect pure noun echoes of _INITIAL_PROMPT/hotwords when no action/question was spoken."""
+    words = [w for w in re.sub(r"[^\w\s]", " ", text.lower()).split() if w]
+    if not words or len(words) > 6:
+        return False
+    if any(w in _ACTION_VERBS for w in words):
+        return False
+    return all(w in _PROMPT_VOCAB for w in words)
+
+
 def normalize_wake_word(text: str) -> str:
     """Correct common Whisper acoustic near-misses for J.U.D.E. and desktop app names."""
     fixed = re.sub(r"\b(hey|hi|hello)\s+(?:dude|jood|june|jewel|judi)\b", r"\1 Jude", text, flags=re.IGNORECASE)
     fixed = re.sub(r"^(?:dude|jood)\b", "Jude", fixed, flags=re.IGNORECASE)
-    fixed = re.sub(r"\b(?:wordset|word\s+set|what['’]s\s+app)\b", "WhatsApp", fixed, flags=re.IGNORECASE)
-    fixed = re.sub(r"\b(open|launch|close|focus)\s+(?:what\s+app|concept)\b", r"\1 WhatsApp", fixed, flags=re.IGNORECASE)
+    fixed = re.sub(r"\b(?:wordset|word\s+set|watts\s*app|what['’]s\s+app)\b", "WhatsApp", fixed, flags=re.IGNORECASE)
+    fixed = re.sub(
+        r"\b(open|launch|start|close|focus)\s+(?:word\s+app|word\s*,\s*sir|word\s+sir|what\s+app|concept)\b",
+        r"\1 WhatsApp",
+        fixed,
+        flags=re.IGNORECASE,
+    )
     return fixed
 
 
@@ -51,6 +140,7 @@ class VoiceListener(QObject):
     """Hands-free local microphone listener backed by faster-whisper (small.en INT8)."""
 
     speech_started = Signal()
+    speech_ended = Signal()
     utterance_ready = Signal(str)
     status_changed = Signal(str)
 
@@ -111,7 +201,7 @@ class VoiceListener(QObject):
 
             AUDIO_MODELS_DIR.mkdir(parents=True, exist_ok=True)
             self._model = WhisperModel(
-                "small",
+                "small.en",
                 device="cpu",
                 compute_type="int8",
                 download_root=str(AUDIO_MODELS_DIR),
@@ -156,10 +246,10 @@ class VoiceListener(QObject):
                             if len(pre_roll) > 6:  # 600 ms pre-roll protects word starts
                                 pre_roll.pop(0)
 
-                            thresh = max(0.011, noise_floor * 2.6)
+                            thresh = max(0.016, noise_floor * 3.2)
                             if rms >= thresh:
                                 speech_hits += 1
-                                if speech_hits >= 2:
+                                if speech_hits >= 3:
                                     in_speech = True
                                     silence_frames = 0
                                     frames = list(pre_roll)
@@ -169,7 +259,7 @@ class VoiceListener(QObject):
                                 noise_floor = 0.92 * noise_floor + 0.08 * min(rms, 0.02)
                         else:
                             frames.append(chunk)
-                            cont_thresh = max(0.008, noise_floor * 1.9)
+                            cont_thresh = max(0.010, noise_floor * 2.1)
                             if rms < cont_thresh:
                                 silence_frames += 1
                             else:
@@ -184,12 +274,13 @@ class VoiceListener(QObject):
                                 frames = []
 
                                 dur_sec = len(clip) / float(sample_rate)
-                                peak_rms = float(np.sqrt(np.mean(clip * clip)))
-                                if dur_sec >= 0.40:
-                                    text = self._transcribe_clip(model, clip, peak_rms)
+                                proc_clip, active_rms = _preprocess_audio(clip, sample_rate)
+                                if dur_sec >= 0.45 and active_rms >= max(0.016, noise_floor * 3.0):
+                                    text = self._transcribe_clip(model, proc_clip, active_rms)
                                     if text:
                                         self.utterance_ready.emit(text)
                                         break
+                                self.speech_ended.emit()
             except Exception as exc:
                 consecutive_errors += 1
                 if consecutive_errors >= 2:
@@ -199,15 +290,29 @@ class VoiceListener(QObject):
                     time.sleep(0.6)
 
     def _transcribe_clip(self, model, clip: np.ndarray, peak_rms: float) -> str:
-        kwargs: dict = {
-            "task": "transcribe",
-            "beam_size": 3,
+        raw_kwargs: dict = {
+            "language": "en",
+            "beam_size": 5,
+            "temperature": 0.0,
+            "compression_ratio_threshold": 2.2,
+            "log_prob_threshold": -0.95,
+            "no_speech_threshold": 0.60,
             "vad_filter": True,
+            "vad_parameters": {
+                "threshold": 0.55,
+                "min_speech_duration_ms": 250,
+                "min_silence_duration_ms": 500,
+                "speech_pad_ms": 250,
+            },
             "initial_prompt": _INITIAL_PROMPT,
             "condition_on_previous_text": False,
+            "hotwords": "Jude WhatsApp Chrome Google Word Explorer Terminal CMD VMware",
         }
-        if "hotwords" in self._transcribe_params:
-            kwargs["hotwords"] = "Jude WhatsApp Chrome Google Word Explorer Terminal VMware"
+        kwargs = {
+            k: v
+            for k, v in raw_kwargs.items()
+            if not self._transcribe_params or k in self._transcribe_params
+        }
 
         segments, _info = model.transcribe(clip, **kwargs)
         parts: list[str] = []
@@ -215,7 +320,8 @@ class VoiceListener(QObject):
         for seg in segments:
             no_speech = getattr(seg, "no_speech_prob", 0.0)
             avg_lp = getattr(seg, "avg_logprob", 0.0)
-            if no_speech > 0.72 or avg_lp < -1.15:
+            comp_ratio = getattr(seg, "compression_ratio", 0.0)
+            if no_speech > 0.60 or avg_lp < -0.95 or comp_ratio > 2.2:
                 continue
             txt = seg.text.strip()
             if txt:
@@ -224,6 +330,9 @@ class VoiceListener(QObject):
 
         full_text = " ".join(parts).strip()
         if not full_text:
+            return ""
+
+        if _is_prompt_echo(full_text):
             return ""
 
         mean_lp = sum(logprobs) / len(logprobs) if logprobs else 0.0

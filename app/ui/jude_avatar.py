@@ -44,7 +44,6 @@ class JudeAvatarWidget(QWidget):
     """Pure QPainter J.U.D.E. glossy capsule robot head with blinking eyes and glow ring."""
 
     clicked = Signal()
-    double_clicked = Signal()
     drag_moved = Signal(QPoint)
     context_menu_requested = Signal(QPoint)
 
@@ -53,7 +52,7 @@ class JudeAvatarWidget(QWidget):
         self.setFixedSize(size, size)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setToolTip("J.U.D.E. — Double-click to open/collapse chat, click for caption, drag to move")
+        self.setToolTip("J.U.D.E. — Click to open/collapse chat, drag to move")
 
         self._state: AvatarState = AvatarState.IDLE
         self._phase: float = 0.0
@@ -63,7 +62,6 @@ class JudeAvatarWidget(QWidget):
         self._blink_progress: float = 0.0  # 0=open, 1=closed
         self._drag_origin: QPoint | None = None
         self._drag_distance: int = 0
-        self._ignore_release_click: bool = False
 
         self._timer = QTimer(self)
         self._timer.setInterval(16)
@@ -132,29 +130,14 @@ class JudeAvatarWidget(QWidget):
             return
         super().mouseMoveEvent(event)
 
-    def mouseDoubleClickEvent(self, event) -> None:
-        if event.button() == Qt.MouseButton.LeftButton:
+    def mouseReleaseEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton and self._drag_origin is not None:
+            was_click = self._drag_distance < 6
             self._drag_origin = None
-            self._ignore_release_click = True
-            self.double_clicked.emit()
+            if was_click:
+                self.clicked.emit()
             event.accept()
             return
-        super().mouseDoubleClickEvent(event)
-
-    def mouseReleaseEvent(self, event) -> None:
-        if event.button() == Qt.MouseButton.LeftButton:
-            if self._ignore_release_click:
-                self._ignore_release_click = False
-                self._drag_origin = None
-                event.accept()
-                return
-            if self._drag_origin is not None:
-                was_click = self._drag_distance < 6
-                self._drag_origin = None
-                if was_click:
-                    self.clicked.emit()
-                event.accept()
-                return
         super().mouseReleaseEvent(event)
 
     def paintEvent(self, _event) -> None:

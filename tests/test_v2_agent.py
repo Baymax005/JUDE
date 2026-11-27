@@ -599,12 +599,11 @@ def test_screen_grounding_lead_in_and_hallucination_guard() -> None:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def test_bubble_ui_win_cmd_confirm_and_multilingual_voice() -> None:
-    from PySide6.QtCore import QPoint, Qt
-    from PySide6.QtGui import QMouseEvent
+def test_dock_alignment_win_cmd_confirm_and_mic_quality() -> None:
+    import numpy as np
     from PySide6.QtWidgets import QApplication
 
-    from app.engine import EngineResponse, JudeEngine
+    from app.engine import JudeEngine
     from app.tier1.actions import execute_windows_command, plan_windows_command
     from app.tier2.ollama_client import JUDE_SYSTEM_PROMPT
     from app.ui.confirm_dialog import ConfirmationDialog
@@ -623,7 +622,7 @@ def test_bubble_ui_win_cmd_confirm_and_multilingual_voice() -> None:
     cap_out = execute_windows_command({"command": "echo JUDE_CMD_OK", "open_visible_cmd": False})
     assert "JUDE_CMD_OK" in cap_out, cap_out
 
-    tmp = _make_temp_dir("cmd_confirm")
+    tmp = _make_temp_dir("dock_cmd_mic")
     try:
         engine = JudeEngine(
             memory_db_path=tmp / "memory.db",
@@ -643,50 +642,26 @@ def test_bubble_ui_win_cmd_confirm_and_multilingual_voice() -> None:
         done = engine.confirm_pending(res.pending.id, edited_after_text="echo EDITED_OK")
         assert "EDITED_OK" in done.reply, done
 
-        # 3. Floating speech bubble UI + single-click caption toggle + double-click HUD toggle
+        # 3. Compact dock alignment, no speech bubble, single-click toggle, speech_ended reset
         win = JudeFloatingWindow(engine=engine)
         win.show()
         app.processEvents()
-        assert win._hud_open is False and not win.speech_bubble.isVisible()
+        assert not hasattr(win, "speech_bubble")
+        assert win.dock_container.width() <= 180
+        assert win.mini_mic_btn.width() <= 90 and win.mini_mute_btn.width() <= 90
+        assert win._hud_open is False
 
-        win.submit_query("Hello Jude", from_voice=True)
-        assert win._hud_open is False, "Voice query must NOT auto-open full chat card"
-        assert win.speech_bubble.isVisible() and win.bubble_label.text() == "Thinking..."
-
-        win._on_engine_response(
-            EngineResponse(
-                reply="All systems are ready.",
-                spoken_summary="All systems are ready.",
-                intent="GENERAL_CHAT",
-                tier_used="tier1",
-                confidence=1.0,
-                gate_action="direct",
-                router_ms=0.2,
-                total_ms=1.0,
-                badge_text="Tier 1 · Fast",
-            )
-        )
+        win.avatar.clicked.emit()
         app.processEvents()
-        assert win._hud_open is False and win.speech_bubble.isVisible()
-        assert "All systems are ready." in win.bubble_label.text()
-
-        # Single click hides/shows caption bubble without opening HUD; double_clicked opens HUD
-        win._on_avatar_single_click()
-        assert not win.speech_bubble.isVisible() and win._hud_open is False
-        win._on_avatar_single_click()
-        assert win.speech_bubble.isVisible() and win._hud_open is False
-
-        dbl = QMouseEvent(
-            QMouseEvent.Type.MouseButtonDblClick,
-            QPoint(20, 20),
-            QPoint(20, 20),
-            Qt.MouseButton.LeftButton,
-            Qt.MouseButton.LeftButton,
-            Qt.KeyboardModifier.NoModifier,
-        )
-        win.avatar.mouseDoubleClickEvent(dbl)
+        assert win._hud_open is True
+        win.avatar.clicked.emit()
         app.processEvents()
-        assert win._hud_open is True and not win.speech_bubble.isVisible()
+        assert win._hud_open is False
+
+        win._on_speech_started()
+        assert win.tier_badge.text() == "Listening..."
+        win._on_speech_ended()
+        assert win.tier_badge.text() == "Ready"
 
         win._quit_app()
         win.close()
@@ -694,12 +669,25 @@ def test_bubble_ui_win_cmd_confirm_and_multilingual_voice() -> None:
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
-    # 4. Multilingual Whisper small + English/Urdu/Roman Urdu LLM instruction check
+    # 4. Audio preprocessing, prompt-echo filter, WhatsApp near-miss & small.en English config
+    zeros, z_rms = listener_mod._preprocess_audio(np.zeros(16000, dtype=np.float32), 16000)
+    assert z_rms == 0.0 and float(np.max(np.abs(zeros))) == 0.0
+
+    t = np.arange(16000, dtype=np.float32) / 16000.0
+    quiet_voice = 0.03 * np.sin(2.0 * np.pi * 440.0 * t)
+    boosted, v_rms = listener_mod._preprocess_audio(quiet_voice, 16000)
+    assert v_rms > 0.015 and float(np.max(np.abs(boosted))) > float(np.max(np.abs(quiet_voice))) * 4.0
+
+    assert listener_mod._is_prompt_echo("Jude, WhatsApp, Chrome, Microsoft Word.") is True
+    assert listener_mod._is_prompt_echo("Open WhatsApp") is False
+    assert listener_mod.normalize_wake_word("Can you open Word, sir?") == "Can you open WhatsApp?"
+    assert listener_mod.normalize_wake_word("Open Word app.") == "Open WhatsApp."
+    assert listener_mod.normalize_wake_word("Open Word") == "Open Word"
+
     listener_src = Path(listener_mod.__file__).read_text(encoding="utf-8")
-    assert '"small"' in listener_src and '"small.en"' not in listener_src
-    assert '"language": "en"' not in listener_src and '"task": "transcribe"' in listener_src
-    assert "Urdu" in JUDE_SYSTEM_PROMPT and "Roman Urdu" in JUDE_SYSTEM_PROMPT
-    print("[OK] Bubble caption UI, double-click HUD, CMD confirm gate & multilingual Whisper passed")
+    assert '"small.en"' in listener_src and '"temperature": 0.0' in listener_src
+    assert "Urdu" not in JUDE_SYSTEM_PROMPT
+    print("[OK] Dock alignment, CMD confirm gate & English mic preprocessing/VAD passed")
 
 
 def main() -> int:
@@ -714,7 +702,7 @@ def main() -> int:
     test_real_chat_fixes_routing_explorer_and_speech()
     test_step2_chrome_file_manager_terminal_minimize_and_colab_artifacts()
     test_screen_grounding_lead_in_and_hallucination_guard()
-    test_bubble_ui_win_cmd_confirm_and_multilingual_voice()
+    test_dock_alignment_win_cmd_confirm_and_mic_quality()
     print("\nALL J.U.D.E. V2 AGENT TESTS PASSED!")
     return 0
 
