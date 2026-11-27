@@ -143,11 +143,13 @@ class ConfirmationDialog(QDialog):
             layout.addWidget(cmd_lbl)
             layout.addWidget(cmd_box)
         elif pending.kind == "win_cmd":
-            mode_name = (
-                "Visible CMD Window (cmd.exe /k)"
-                if pending.payload.get("open_visible_cmd")
-                else "Capture Output inside J.U.D.E."
-            )
+            reuse_title = str(pending.payload.get("reuse_terminal_title") or "").strip()
+            if pending.payload.get("reuse_terminal_hwnd"):
+                mode_name = f"Type Live into Open Terminal ({reuse_title or 'Active Terminal'})"
+            elif pending.payload.get("open_visible_cmd"):
+                mode_name = "Open Visible CMD Window (cmd.exe /k)"
+            else:
+                mode_name = "Capture Output inside J.U.D.E."
             mode_lbl = QLabel(f"Execution Mode: {mode_name}")
             mode_lbl.setObjectName("metaLbl")
             layout.addWidget(mode_lbl)

@@ -690,6 +690,96 @@ def test_dock_alignment_win_cmd_confirm_and_mic_quality() -> None:
     print("[OK] Dock alignment, CMD confirm gate & English mic preprocessing/VAD passed")
 
 
+def test_start_menu_live_terminal_chrome_and_deictic_close() -> None:
+    import ctypes
+    from PySide6.QtWidgets import QApplication
+
+    from app.engine import JudeEngine
+    from app.tier1 import actions as actions_mod
+    from app.ui.confirm_dialog import ConfirmationDialog
+
+    assert ctypes.sizeof(actions_mod._INPUT) == 40, ctypes.sizeof(actions_mod._INPUT)
+
+    tmp = _make_temp_dir("shortcuts_live_term")
+    try:
+        sm_root = tmp / "StartMenu"
+        (sm_root / "VMware").mkdir(parents=True, exist_ok=True)
+        (sm_root / "GNS3").mkdir(parents=True, exist_ok=True)
+        (sm_root / "VMware" / "VMware Workstation Pro.lnk").write_text("", encoding="utf-8")
+        (sm_root / "VMware" / "Uninstall VMware.lnk").write_text("", encoding="utf-8")
+        (sm_root / "GNS3" / "GNS3.lnk").write_text("", encoding="utf-8")
+
+        with patch("app.tier1.actions._default_start_menu_roots", return_value=[sm_root]):
+            hit_vm = actions_mod._find_start_menu_shortcut("Can you open VMware?")
+            hit_gns = actions_mod._find_start_menu_shortcut("Open GNS3")
+            assert hit_vm is not None and hit_vm[1] == "VMware Workstation Pro", hit_vm
+            assert hit_gns is not None and hit_gns[1] == "GNS3", hit_gns
+
+            ok_vm, msg_vm = actions_mod.open_target("Can you open VMware?", dry_run=True)
+            ok_gns, msg_gns = actions_mod.open_target("Open GNS3", dry_run=True)
+            assert ok_vm and "VMware Workstation Pro" in msg_vm, (ok_vm, msg_vm)
+            assert ok_gns and "GNS3" in msg_gns, (ok_gns, msg_gns)
+
+            engine = JudeEngine(
+                memory_db_path=tmp / "memory.db",
+                backups_dir=tmp / "backups",
+                feedback_path=tmp / "feedback.jsonl",
+            )
+            with patch("app.engine.open_target", side_effect=lambda q, dry_run=False: actions_mod.open_target(q, dry_run=True)):
+                res_vm = engine.process("Can you open VMware?")
+                res_vm2 = engine.process("Yeah, just open VMware Workstation.")
+                res_gns = engine.process("Open GNS3")
+                assert res_vm.tier_used == "tier1" and "VMware Workstation Pro" in res_vm.reply, res_vm
+                assert res_vm2.tier_used == "tier1" and "VMware Workstation Pro" in res_vm2.reply, res_vm2
+                assert res_gns.tier_used == "tier1" and "GNS3" in res_gns.reply, res_gns
+
+        fake_wins = [
+            {"hwnd": 901, "title": r"C:\Windows\System32\cmd.exe", "process": "WindowsTerminal.exe", "class_name": "CASCADIA_HOSTING_WINDOW_CLASS", "pid": 999},
+            {"hwnd": 902, "title": "Jude - File Explorer", "process": "explorer.exe", "class_name": "CabinetWClass", "pid": 888},
+        ]
+        with patch("app.tier1.actions.list_open_windows", return_value=fake_wins):
+            term = actions_mod.find_open_terminal_window()
+            assert term is not None and term["hwnd"] == 901, term
+
+            plan = actions_mod.plan_windows_command("dir D:\\", cwd="D:\\", open_visible_cmd=True, target_hwnd=901)
+            assert plan["ok"] and plan["reuse_terminal_hwnd"] == 901, plan
+
+            app = QApplication.instance() or QApplication([])
+            res_cmd = engine.process("Can you open command prompt and can you show me DIR?", target_hwnd=901)
+            assert res_cmd.tier_used == "pending" and res_cmd.pending is not None, res_cmd
+            assert res_cmd.pending.kind == "win_cmd" and res_cmd.pending.payload["command"].lower() == "dir", res_cmd.pending
+            dlg = ConfirmationDialog(res_cmd.pending)
+            assert dlg.after_edit is not None and "dir" in dlg.after_edit.toPlainText().lower()
+            dlg.close()
+
+            engine._last_dir_path = "D:\\"
+            res_inside = engine.process("Show me inside my terminal.", target_hwnd=901)
+            assert res_inside.tier_used == "pending" and res_inside.pending is not None, res_inside
+            assert "dir D:\\" in res_inside.pending.payload["command"], res_inside.pending
+
+            with patch("app.tier1.actions.type_into_terminal_window", return_value=(True, "Typed and executed `dir D:\\`")) as mock_type:
+                done = engine.confirm_pending(res_inside.pending.id)
+                assert mock_type.called and "Typed and executed" in done.reply, done
+
+            res_close = engine.process("Close this on my screen.", target_hwnd=902)
+            assert res_close.tier_used == "pending" and res_close.pending is not None, res_close
+            assert res_close.pending.kind == "close_app" and res_close.pending.payload["hwnd"] == 902, res_close.pending
+
+        with patch("app.engine.open_chrome", return_value=(True, "Opened Google Chrome to `chrome://newtab`.")) as mock_ch:
+            res_tab = engine.process("Open a new tab.")
+            assert res_tab.tier_used == "tier1" and mock_ch.called
+            assert mock_ch.call_args.kwargs.get("url") == "chrome://newtab"
+
+        with patch("app.engine.open_chrome", return_value=(True, "Opened Google Chrome to `https://www.google.com/search?q=GitHub`.")) as mock_sr:
+            res_gh = engine.process("Can you search GitHub?")
+            assert res_gh.tier_used == "tier1" and mock_sr.called
+            assert mock_sr.call_args.kwargs.get("url") == "https://www.google.com/search?q=GitHub"
+
+        print("[OK] Start Menu apps (VMware/GNS3), live terminal typing, Chrome tab/search & deictic close passed")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main() -> int:
     configure_d_drive_env()
     assert_no_c_drive_leakage()
@@ -703,6 +793,7 @@ def main() -> int:
     test_step2_chrome_file_manager_terminal_minimize_and_colab_artifacts()
     test_screen_grounding_lead_in_and_hallucination_guard()
     test_dock_alignment_win_cmd_confirm_and_mic_quality()
+    test_start_menu_live_terminal_chrome_and_deictic_close()
     print("\nALL J.U.D.E. V2 AGENT TESTS PASSED!")
     return 0
 

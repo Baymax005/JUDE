@@ -378,7 +378,7 @@
     "type": "function",
     "function": {
       "name": "run_windows_command",
-      "description": "Stage a Windows CMD command for mandatory user confirmation before execution. Supports captured output or opening a visible Command Prompt window.",
+      "description": "Stage a Windows CMD command for mandatory user confirmation before execution. Supports captured output, opening a visible Command Prompt window, or typing live into an already-open terminal when open_visible_cmd=true or a terminal window is active.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -392,7 +392,7 @@
           },
           "open_visible_cmd": {
             "type": "boolean",
-            "description": "True to open a visible cmd.exe window; omit for Smart mode."
+            "description": "True to type into an open terminal or launch visible cmd.exe; omit for Smart mode."
           }
         },
         "required": [

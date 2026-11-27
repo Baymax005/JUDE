@@ -8,6 +8,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote_plus
 
 from app.config import (
     BACKUPS_DIR,
@@ -23,10 +24,13 @@ from app.tier1.actions import (
     execute_close_app,
     execute_compression,
     execute_windows_command,
+    find_open_terminal_window,
     get_system_info,
+    open_chrome,
     open_target,
     open_terminal,
     plan_close_app,
+    plan_close_hwnd,
     plan_compression,
     plan_windows_command,
 )
@@ -227,12 +231,107 @@ _CLOSE_APP_RE = re.compile(
     r"^(?:(?:(?:hey|hi|hello)\s+)?jude[\s,:-]+)?(?:please\s+|can\s+you\s+)?close\s+(.+?)[.?!]*$",
     flags=re.IGNORECASE,
 )
-_WIN_CMD_DIRECT_RE = re.compile(
-    r"^(?:(?:(?:hey|hi|hello)\s+)?jude[\s,:-]+)?(?:please\s+|can\s+you\s+)?"
-    r"(?:(?:open\s+(?:my\s+)?(?:cmd|command\s+prompt)\s+and\s+(?:run|type|execute)\s+(.+?))"
-    r"|(?:(?:run|type|execute)\s+(.+?)\s+(?:in|on)\s+(?:my\s+)?(?:cmd|command\s+prompt)))[.?!]*$",
+_NEW_TAB_RE = re.compile(
+    r"^(?:please\s+|(?:can|could|would)\s+you\s+)?open\s+(?:a\s+|one\s+)?new\s+(?:chrome\s+|browser\s+)?tab\b",
     flags=re.IGNORECASE,
 )
+_SEARCH_BROWSER_RE = re.compile(
+    r"^(?:please\s+|(?:can|could|would)\s+you\s+)?(?:search|google|look\s+up)\s+(?:for\s+)?(.+?)(?:\s+(?:on|in)\s+(?:google\s+)?(?:chrome|browser|google))?[.?!]*$",
+    flags=re.IGNORECASE,
+)
+_SEARCH_LOCAL_SKIP_RE = re.compile(
+    r"\b(?:my\s+)?(?:file|files|folder|folders|disk|drive|memory|memories|word|doc|document|pc|computer|backup)\b",
+    flags=re.IGNORECASE,
+)
+_WIN_CMD_DIRECT_RE = re.compile(
+    r"^(?:(?:(?:hey|hi|hello)\s+)?jude[\s,:-]+)?(?:please\s+|can\s+you\s+)?"
+    r"(?:(?:open\s+(?:my\s+|the\s+)?(?:cmd|command\s+prompt|terminal)\s+and\s+(?:run|type|execute)\s+(.+?))"
+    r"|(?:(?:run|type|execute)\s+(.+?)\s+(?:in|on|inside)\s+(?:my\s+|the\s+)?(?:cmd|command\s+prompt|terminal)))[.?!]*$",
+    flags=re.IGNORECASE,
+)
+_OPEN_CMD_AND_RE = re.compile(
+    r"^(?:please\s+|(?:can|could|would)\s+you\s+)?(?:open|launch|start)\s+(?:my\s+|the\s+)?(?:cmd|command\s+prompt|terminal)\s+and\s+(?:please\s+|(?:can|could|would)\s+you\s+)?(?:run|type|execute|show(?:\s+me)?)\s+(.+?)[.?!]*$",
+    flags=re.IGNORECASE,
+)
+_SHOW_DIR_IN_TERM_RE = re.compile(
+    r"^(?:please\s+|(?:can|could|would)\s+you\s+)?(?:show(?:\s+me)?|list)\s+(?:the\s+)?(?:dir|dirs|director(?:y|ies)|files)(?:\s+(?:in|of|on)\s+(?:drive\s+([a-z])|([a-z])\s+drive))?\s+(?:in|on|inside)\s+(?:my\s+|the\s+)?(?:cmd|command\s+prompt|terminal)[.?!]*$",
+    flags=re.IGNORECASE,
+)
+_SHOW_LAST_IN_TERM_RE = re.compile(
+    r"^(?:please\s+|(?:can|could|would)\s+you\s+)?show(?:\s+me)?(?:\s+(?:it|that|this|the\s+output|them|the\s+directories))?\s+(?:in|inside|on)\s+(?:my\s+|the\s+)?(?:cmd|command\s+prompt|terminal)[.?!]*$",
+    flags=re.IGNORECASE,
+)
+_SHOW_DIR_ACTIVE_TERM_RE = re.compile(
+    r"^(?:please\s+|(?:can|could|would)\s+you\s+)?(?:show(?:\s+me)?|list)\s+(?:the\s+)?(?:dir|dirs|director(?:y|ies)|files)\s+(?:in|of|on)\s+(?:drive\s+([a-z])|([a-z])\s+drive)[.?!]*$",
+    flags=re.IGNORECASE,
+)
+
+
+def _extract_browser_search_query(cleaned: str) -> str:
+    stripped = _strip_lead_ins(cleaned)
+    m = _SEARCH_BROWSER_RE.match(stripped) or _SEARCH_BROWSER_RE.match(cleaned)
+    if not m:
+        return ""
+    q = m.group(1).strip(" .?!\"'")
+    q = re.sub(r"\s+(?:on|in)\s+(?:google\s+)?(?:chrome|browser|google)$", "", q, flags=re.IGNORECASE).strip()
+    return q
+
+
+def _extract_direct_win_cmd(
+    cleaned: str,
+    target_hwnd: int | None = None,
+    last_dir_path: str = "",
+) -> tuple[str, str] | None:
+    """Parse explicit CMD/live-terminal phrases into (command, explicit_cwd)."""
+    low = (cleaned or "").lower()
+    if any(w in low for w in ("vmware", "ubuntu", "linux")):
+        return None
+    stripped = _strip_lead_ins(cleaned) or cleaned
+
+    m1 = _OPEN_CMD_AND_RE.match(stripped) or _OPEN_CMD_AND_RE.match(cleaned)
+    if m1:
+        raw_tail = m1.group(1).strip(" .?!")
+        dm = re.match(
+            r"^(?:the\s+)?(?:dir|dirs|director(?:y|ies)|files)(?:\s+(?:in|of|on)\s+(?:drive\s+([a-z])|([a-z])\s+drive))?$",
+            raw_tail,
+            flags=re.IGNORECASE,
+        )
+        if dm:
+            let = dm.group(1) or dm.group(2)
+            if let:
+                p = f"{let.upper()}:\\"
+                return f"dir {p}", p
+            return "dir", ""
+        return raw_tail, ""
+
+    m2 = _WIN_CMD_DIRECT_RE.match(stripped) or _WIN_CMD_DIRECT_RE.match(cleaned)
+    if m2:
+        raw_cmd = ((m2.group(1) or m2.group(2)) or "").strip()
+        if raw_cmd:
+            return raw_cmd, ""
+
+    m3 = _SHOW_DIR_IN_TERM_RE.match(stripped) or _SHOW_DIR_IN_TERM_RE.match(cleaned)
+    if m3:
+        let = m3.group(1) or m3.group(2)
+        if let:
+            p = f"{let.upper()}:\\"
+            return f"dir {p}", p
+        return "dir", ""
+
+    m4 = _SHOW_LAST_IN_TERM_RE.match(stripped) or _SHOW_LAST_IN_TERM_RE.match(cleaned)
+    if m4:
+        if last_dir_path:
+            return f"dir {last_dir_path}", last_dir_path
+        return "dir", ""
+
+    m5 = _SHOW_DIR_ACTIVE_TERM_RE.match(stripped) or _SHOW_DIR_ACTIVE_TERM_RE.match(cleaned)
+    if m5 and find_open_terminal_window(target_hwnd) is not None:
+        let = m5.group(1) or m5.group(2)
+        if let:
+            p = f"{let.upper()}:\\"
+            return f"dir {p}", p
+
+    return None
 _WORD_EDIT_RE = re.compile(
     r"\bword\s+(?:doc(?:ument)?|file)\b.*\b(?:fill|edit|rewrite|polish|update|change|insert|fix|shorten|add|type|put|append|write)\b"
     r"|\b(?:fill|edit|rewrite|polish|update|change|insert|fix|shorten|add|type|put|append|write)\b.*\b(?:word\s+(?:doc(?:ument)?|file)|highlighted\s+(?:area|text|section|part)|on\s+the\s+highlighted)\b",
@@ -263,7 +362,11 @@ def _strip_lead_ins(text: str) -> str:
     return _LEAD_IN_RE.sub("", " ".join((text or "").strip().split())).strip()
 
 
-def _match_deterministic_guard(cleaned: str) -> tuple[str, str] | None:
+def _match_deterministic_guard(
+    cleaned: str,
+    target_hwnd: int | None = None,
+    last_dir_path: str = "",
+) -> tuple[str, str] | None:
     """Catch deterministic Tier 1 / Word / Agent commands before the 9-class ONNX classifier."""
     low = cleaned.lower()
     stripped = _strip_lead_ins(cleaned)
@@ -278,12 +381,14 @@ def _match_deterministic_guard(cleaned: str) -> tuple[str, str] | None:
         return ("READ_SELECTION", "tier1")
     if _SCREEN_QUERY_RE.search(low):
         return ("EXPLAIN_SCREEN", "tier2")
+    if _NEW_TAB_RE.match(stripped) or _NEW_TAB_RE.match(cleaned):
+        return ("OPEN_NEW_TAB", "tier1")
+    search_q = _extract_browser_search_query(cleaned)
+    if search_q and not _SEARCH_LOCAL_SKIP_RE.search(low_stripped):
+        return ("BROWSER_SEARCH", "tier1")
     if _DRIVE_OPEN_RE.search(low_stripped) or _DRIVE_OPEN_RE.search(low):
         return ("OPEN_TARGET", "tier1")
-    if (
-        (_WIN_CMD_DIRECT_RE.match(stripped) or _WIN_CMD_DIRECT_RE.match(cleaned))
-        and not any(w in low for w in ("vmware", "ubuntu", "linux"))
-    ):
+    if _extract_direct_win_cmd(cleaned, target_hwnd=target_hwnd, last_dir_path=last_dir_path) is not None:
         return ("WIN_CMD_DIRECT", "tier2")
     if _BARE_TERMINAL_RE.match(stripped) or _BARE_TERMINAL_RE.match(cleaned):
         return ("OPEN_TERMINAL_DIRECT", "tier1")
@@ -293,7 +398,10 @@ def _match_deterministic_guard(cleaned: str) -> tuple[str, str] | None:
         return ("CLOSE_APP_DIRECT", "tier2")
     if (
         (_OPEN_APP_RE.match(stripped) or _OPEN_APP_RE.match(cleaned))
-        and not re.search(r"\b(?:terminal|powershell|cmd|create|new\s+word|search|vmware|linux|ubuntu|compress|zip|archive)\b", low_stripped)
+        and not re.search(
+            r"\b(?:terminal|powershell|cmd|command\s+prompt|create|new\s+word|new\s+tab|search|linux|ubuntu|ssh|vm\b|vms\b|compress|zip|archive)\b",
+            low_stripped,
+        )
         and open_target(stripped or cleaned, dry_run=True)[0]
     ):
         return ("OPEN_TARGET", "tier1")
@@ -329,6 +437,7 @@ class JudeEngine:
 
         self._pending: dict[str, PendingConfirmation] = {}
         self._last_opened_target: str = ""
+        self._last_dir_path: str = ""
 
     @property
     def router_status(self) -> str:
@@ -360,6 +469,20 @@ class JudeEngine:
             return delete_memory_by_query(text, db_path=self.memory_db_path)
         if intent == "READ_SELECTION":
             _, msg = read_highlighted_text(target_hwnd=target_hwnd)
+            return msg
+        if intent == "OPEN_NEW_TAB":
+            ok, msg = open_chrome(url="chrome://newtab")
+            if ok:
+                self._last_opened_target = "chrome"
+                log_activity("open_target", "Chrome new tab", msg, db_path=self.memory_db_path)
+            return msg
+        if intent == "BROWSER_SEARCH":
+            q = _extract_browser_search_query(text)
+            url = f"https://www.google.com/search?q={quote_plus(q)}"
+            ok, msg = open_chrome(url=url)
+            if ok:
+                self._last_opened_target = "chrome"
+                log_activity("google_browser", q, url, db_path=self.memory_db_path)
             return msg
         if intent == "OPEN_TARGET":
             ok, msg = open_target(_strip_lead_ins(text) or text)
@@ -526,7 +649,13 @@ class JudeEngine:
                 badge_text=f"Tier 1 · Instant · {total_ms:.1f} ms",
             )
 
-        guard = _match_deterministic_guard(cleaned)
+        drive_hint = re.search(r"\b(?:local\s+disk|drive)\s+([a-z])\b|\b([a-z])\s+drive\b", cleaned, flags=re.IGNORECASE)
+        if drive_hint:
+            let = (drive_hint.group(1) or drive_hint.group(2) or "").upper()
+            if let:
+                self._last_dir_path = f"{let}:\\"
+
+        guard = _match_deterministic_guard(cleaned, target_hwnd=target_hwnd, last_dir_path=self._last_dir_path)
         if guard is not None:
             guard_intent, guard_tier = guard
             route = RouteResult(
@@ -564,23 +693,45 @@ class JudeEngine:
                 m = _CLOSE_APP_RE.match(stripped_close) or _CLOSE_APP_RE.match(cleaned)
                 raw_target = (m.group(1) if m else "").strip()
                 raw_target = re.sub(r"[\s,]+jude$", "", raw_target, flags=re.I).strip()
-                if raw_target.lower() in {"it", "that", "this", "this app", "that app", "the app", "that window", "this window"}:
+                raw_low = raw_target.lower()
+                deictic_screen = raw_low in {
+                    "this on my screen",
+                    "this window on my screen",
+                    "what's on my screen",
+                    "whats on my screen",
+                    "active window",
+                    "current window",
+                    "the window",
+                    "that window",
+                    "this window",
+                }
+                deictic_prev = raw_low in {"it", "that", "this", "this app", "that app", "the app"}
+                plan: dict | None = None
+                if deictic_screen and target_hwnd:
+                    plan = plan_close_hwnd(target_hwnd)
+                    if not plan.get("ok") and self._last_opened_target:
+                        plan = plan_close_app(self._last_opened_target)
+                elif deictic_prev:
                     raw_target = self._last_opened_target
-                if not raw_target:
-                    total_ms = (time.perf_counter() - t_start) * 1000.0
-                    msg = "Tell me which open app or window you want me to close."
-                    return EngineResponse(
-                        reply=msg,
-                        spoken_summary=msg,
-                        intent="CLOSE_APP",
-                        tier_used="tier2",
-                        confidence=1.0,
-                        gate_action="direct",
-                        router_ms=0.1,
-                        total_ms=total_ms,
-                        badge_text=f"Agent · Clarify · {total_ms:.1f} ms",
-                    )
-                plan = plan_close_app(raw_target)
+                    if not raw_target and target_hwnd:
+                        plan = plan_close_hwnd(target_hwnd)
+
+                if plan is None:
+                    if not raw_target:
+                        total_ms = (time.perf_counter() - t_start) * 1000.0
+                        msg = "Tell me which open app or window you want me to close."
+                        return EngineResponse(
+                            reply=msg,
+                            spoken_summary=msg,
+                            intent="CLOSE_APP",
+                            tier_used="tier2",
+                            confidence=1.0,
+                            gate_action="direct",
+                            router_ms=0.1,
+                            total_ms=total_ms,
+                            badge_text=f"Agent · Clarify · {total_ms:.1f} ms",
+                        )
+                    plan = plan_close_app(raw_target)
                 total_ms = (time.perf_counter() - t_start) * 1000.0
                 if not plan.get("ok"):
                     err = plan.get("error", f"Couldn't find an open window for {raw_target}.")
@@ -621,10 +772,20 @@ class JudeEngine:
                     pending=pending,
                 )
             if guard_intent == "WIN_CMD_DIRECT":
-                stripped_cmd = _strip_lead_ins(cleaned) or cleaned
-                m = _WIN_CMD_DIRECT_RE.match(stripped_cmd) or _WIN_CMD_DIRECT_RE.match(cleaned)
-                raw_cmd = ((m.group(1) or m.group(2)) if m else "").strip()
-                plan = plan_windows_command(raw_cmd, open_visible_cmd=True)
+                parsed_cmd = _extract_direct_win_cmd(
+                    cleaned,
+                    target_hwnd=target_hwnd,
+                    last_dir_path=self._last_dir_path,
+                )
+                raw_cmd, explicit_cwd = parsed_cmd if parsed_cmd is not None else ("", "")
+                if explicit_cwd:
+                    self._last_dir_path = explicit_cwd
+                plan = plan_windows_command(
+                    raw_cmd,
+                    cwd=explicit_cwd,
+                    open_visible_cmd=True,
+                    target_hwnd=target_hwnd,
+                )
                 total_ms = (time.perf_counter() - t_start) * 1000.0
                 if not plan.get("ok"):
                     err = plan.get("error", "Could not stage Windows CMD command.")
@@ -640,11 +801,17 @@ class JudeEngine:
                         badge_text=f"CMD · Blocked · {total_ms:.1f} ms",
                     )
                 pid = uuid.uuid4().hex[:10]
+                term_title = str(plan.get("reuse_terminal_title") or "").strip()
+                summary_txt = (
+                    f"Review and confirm before typing this live into `{term_title}`:"
+                    if plan.get("reuse_terminal_hwnd")
+                    else "Review and confirm before opening Command Prompt and executing:"
+                )
                 pending = PendingConfirmation(
                     id=pid,
                     kind="win_cmd",
                     title="Confirm Windows CMD Command",
-                    summary="Review and confirm before opening Command Prompt and executing:",
+                    summary=summary_txt,
                     intent="RUN_WIN_CMD",
                     confidence=1.0,
                     target_path=plan["cwd"],

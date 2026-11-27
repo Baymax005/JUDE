@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import ctypes
+from ctypes import wintypes
 import json
 import os
 import re
 import shutil
 import socket
 import subprocess
+import time
 import webbrowser
 import zipfile
 from datetime import datetime
@@ -171,6 +173,143 @@ _FOLDER_ALIASES: dict[str, Path] = {
 }
 
 _DISALLOWED_EXEC_EXTS = {".exe", ".bat", ".cmd", ".ps1", ".vbs", ".msi", ".com"}
+
+_NON_APP_SKIP_WORDS = {
+    "file",
+    "files",
+    "folder",
+    "tab",
+    "new tab",
+    "screen",
+    "window",
+    "terminal",
+    "cmd",
+    "command prompt",
+    "downloads",
+    "desktop",
+    "documents",
+    "pictures",
+    "videos",
+    "music",
+}
+
+_TERMINAL_PROCESSES = {"windowsterminal.exe", "cmd.exe", "powershell.exe", "pwsh.exe", "conhost.exe"}
+_TERMINAL_CLASSES = {"CASCADIA_HOSTING_WINDOW_CLASS", "ConsoleWindowClass"}
+
+
+class _MOUSEINPUT(ctypes.Structure):
+    _fields_ = [
+        ("dx", wintypes.LONG),
+        ("dy", wintypes.LONG),
+        ("mouseData", wintypes.DWORD),
+        ("dwFlags", wintypes.DWORD),
+        ("time", wintypes.DWORD),
+        ("dwExtraInfo", ctypes.c_size_t),
+    ]
+
+
+class _KEYBDINPUT(ctypes.Structure):
+    _fields_ = [
+        ("wVk", wintypes.WORD),
+        ("wScan", wintypes.WORD),
+        ("dwFlags", wintypes.DWORD),
+        ("time", wintypes.DWORD),
+        ("dwExtraInfo", ctypes.c_size_t),
+    ]
+
+
+class _HARDWAREINPUT(ctypes.Structure):
+    _fields_ = [
+        ("uMsg", wintypes.DWORD),
+        ("wParamL", wintypes.WORD),
+        ("wParamH", wintypes.WORD),
+    ]
+
+
+class _INPUT_UNION(ctypes.Union):
+    _fields_ = [
+        ("mi", _MOUSEINPUT),
+        ("ki", _KEYBDINPUT),
+        ("hi", _HARDWAREINPUT),
+    ]
+
+
+class _INPUT(ctypes.Structure):
+    _fields_ = [
+        ("type", wintypes.DWORD),
+        ("union", _INPUT_UNION),
+    ]
+
+
+def _default_start_menu_roots() -> list[Path]:
+    roots = [Path(r"C:\ProgramData\Microsoft\Windows\Start Menu\Programs")]
+    appdata = os.environ.get("APPDATA", "")
+    if appdata:
+        roots.append(Path(appdata) / "Microsoft" / "Windows" / "Start Menu" / "Programs")
+    else:
+        roots.append(Path.home() / "AppData" / "Roaming" / "Microsoft" / "Windows" / "Start Menu" / "Programs")
+    return roots
+
+
+def _find_start_menu_shortcut(
+    query: str,
+    search_roots: list[Path] | None = None,
+) -> tuple[Path, str] | None:
+    """Resolve an installed Start Menu .lnk shortcut dynamically (e.g. VMware Workstation Pro, GNS3)."""
+    q = " ".join((query or "").strip().split())
+    q = re.sub(
+        r"^(?:(?:can|could|would)\s+you\s+|please\s+|just\s+|open\s+|launch\s+|start\s+|run\s+)+",
+        "",
+        q,
+        flags=re.IGNORECASE,
+    )
+    q = re.sub(
+        r"(?:\s+(?:app|application|software|program|please|for\s+me))+$",
+        "",
+        q,
+        flags=re.IGNORECASE,
+    )
+    q_clean = re.sub(r"[^a-z0-9\s]", " ", q.lower()).strip()
+    q_clean = " ".join(q_clean.split())
+    if not q_clean or len(q_clean) < 2 or q_clean in _NON_APP_SKIP_WORDS:
+        return None
+    q_tokens = q_clean.split()
+
+    roots = search_roots if search_roots is not None else _default_start_menu_roots()
+    candidates: list[tuple[tuple[int, int, str], Path, str]] = []
+    bad_markers = ("uninstall", "readme", "help", "manual", "website", "license", "documentation")
+
+    for root in roots:
+        try:
+            if not root.exists():
+                continue
+            for lnk in root.rglob("*.lnk"):
+                try:
+                    stem = lnk.stem.strip()
+                    stem_low = re.sub(r"[^a-z0-9\s]", " ", stem.lower())
+                    stem_low = " ".join(stem_low.split())
+                    if not stem_low or any(b in stem_low for b in bad_markers):
+                        continue
+                    stem_words = set(stem_low.split())
+                    if stem_low == q_clean:
+                        score = (0, len(stem_low), stem_low)
+                    elif stem_low.startswith(q_clean):
+                        score = (1, len(stem_low), stem_low)
+                    elif all(tok in stem_words or (len(tok) >= 4 and tok in stem_low) for tok in q_tokens):
+                        score = (2, len(stem_low), stem_low)
+                    else:
+                        continue
+                    candidates.append((score, lnk, stem))
+                except OSError:
+                    continue
+        except OSError:
+            continue
+
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: item[0])
+    _, best_path, best_name = candidates[0]
+    return best_path, best_name
 
 
 def _strip_wake_word(text: str) -> str:
@@ -408,6 +547,14 @@ def open_target(text: str, dry_run: bool = False) -> tuple[bool, str]:
                         subprocess.Popen([target_cmd], shell=False)
             return True, f"Launched {display_name}."
 
+    # 4b. Installed Start Menu shortcuts (VMware Workstation Pro, GNS3, etc.)
+    shortcut = _find_start_menu_shortcut(cleaned_text)
+    if shortcut is not None:
+        lnk_path, display_name = shortcut
+        if not dry_run:
+            os.startfile(str(lnk_path))
+        return True, f"Launched {display_name}."
+
     # 5. Folder aliases (Downloads, Desktop, Documents, etc.)
     alias_cand = _extract_path_candidate(cleaned_text, allow_aliases=True)
     if alias_cand is not None:
@@ -624,6 +771,115 @@ def plan_close_app(target: str) -> dict:
     }
 
 
+def plan_close_hwnd(hwnd: int) -> dict:
+    """Resolve a specific visible HWND (e.g. 'close this on my screen') for safe confirmation."""
+    if not hwnd:
+        return {"ok": False, "error": "No active window handle is available to close."}
+    windows = list_open_windows()
+    chosen = next((w for w in windows if int(w.get("hwnd") or 0) == int(hwnd)), None)
+    if chosen is None:
+        return {"ok": False, "error": "The window on your screen could not be identified."}
+    proc_low = chosen["process"].lower()
+    class_name = chosen.get("class_name", "")
+    is_explorer_folder = proc_low == "explorer.exe" and class_name == "CabinetWClass"
+    if (
+        (proc_low in _PROTECTED_PROCESSES and not is_explorer_folder)
+        or class_name in {"Shell_TrayWnd", "Progman", "WorkerW"}
+        or chosen["pid"] == os.getpid()
+    ):
+        return {"ok": False, "error": f"Refusing to close protected system window `{chosen['title']}`."}
+    return {
+        "ok": True,
+        "hwnd": chosen["hwnd"],
+        "pid": chosen["pid"],
+        "title": chosen["title"],
+        "process": chosen["process"],
+        "class_name": class_name,
+    }
+
+
+def _is_terminal_window(win: dict) -> bool:
+    proc = str(win.get("process") or "").lower()
+    cls = str(win.get("class_name") or "")
+    return proc in _TERMINAL_PROCESSES or cls in _TERMINAL_CLASSES
+
+
+def find_open_terminal_window(target_hwnd: int | None = None) -> dict | None:
+    """Return an open Windows Terminal / Command Prompt window dict, preferring target_hwnd."""
+    windows = list_open_windows()
+    if target_hwnd:
+        for w in windows:
+            if int(w.get("hwnd") or 0) == int(target_hwnd) and _is_terminal_window(w):
+                return w
+    for w in windows:
+        if _is_terminal_window(w):
+            return w
+    return None
+
+
+def type_into_terminal_window(hwnd: int, command: str) -> tuple[bool, str]:
+    """Focus an open terminal window and send Unicode keystrokes + Enter via Win32 SendInput."""
+    cmd = " ".join((command or "").strip().splitlines()).strip()
+    if not cmd:
+        return False, "No command text to type."
+    if not hwnd or not win32gui.IsWindow(hwnd):
+        return False, "The target terminal window is no longer open."
+
+    title = win32gui.GetWindowText(hwnd).strip() or "Command Prompt"
+    try:
+        if win32gui.IsIconic(hwnd):
+            win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+        user32 = ctypes.windll.user32
+        kernel32 = ctypes.windll.kernel32
+        fg_hwnd = win32gui.GetForegroundWindow()
+        cur_tid = int(kernel32.GetCurrentThreadId())
+        fg_tid = int(win32process.GetWindowThreadProcessId(fg_hwnd)[0]) if fg_hwnd else 0
+        tgt_tid = int(win32process.GetWindowThreadProcessId(hwnd)[0])
+
+        attached_fg = False
+        attached_tgt = False
+        try:
+            if fg_tid and fg_tid != cur_tid:
+                attached_fg = bool(user32.AttachThreadInput(cur_tid, fg_tid, True))
+            if tgt_tid and tgt_tid != cur_tid:
+                attached_tgt = bool(user32.AttachThreadInput(cur_tid, tgt_tid, True))
+            win32gui.BringWindowToTop(hwnd)
+            win32gui.SetForegroundWindow(hwnd)
+        finally:
+            if attached_tgt:
+                user32.AttachThreadInput(cur_tid, tgt_tid, False)
+            if attached_fg:
+                user32.AttachThreadInput(cur_tid, fg_tid, False)
+
+        time.sleep(0.15)
+        INPUT_KEYBOARD = 1
+        KEYEVENTF_KEYUP = 0x0002
+        KEYEVENTF_UNICODE = 0x0004
+        VK_RETURN = 0x0D
+
+        inputs: list[_INPUT] = []
+        utf16 = cmd.encode("utf-16-le")
+        for i in range(0, len(utf16), 2):
+            scan = int.from_bytes(utf16[i : i + 2], "little")
+            inputs.append(_INPUT(type=INPUT_KEYBOARD, union=_INPUT_UNION(ki=_KEYBDINPUT(0, scan, KEYEVENTF_UNICODE, 0, 0))))
+            inputs.append(
+                _INPUT(
+                    type=INPUT_KEYBOARD,
+                    union=_INPUT_UNION(ki=_KEYBDINPUT(0, scan, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, 0, 0)),
+                )
+            )
+        inputs.append(_INPUT(type=INPUT_KEYBOARD, union=_INPUT_UNION(ki=_KEYBDINPUT(VK_RETURN, 0, 0, 0, 0))))
+        inputs.append(_INPUT(type=INPUT_KEYBOARD, union=_INPUT_UNION(ki=_KEYBDINPUT(VK_RETURN, 0, KEYEVENTF_KEYUP, 0, 0))))
+
+        arr = (_INPUT * len(inputs))(*inputs)
+        sent = user32.SendInput(len(inputs), arr, ctypes.sizeof(_INPUT))
+        if sent != len(inputs):
+            return False, f"SendInput sent {sent}/{len(inputs)} key events to `{title}`."
+        return True, f"Typed and executed `{cmd}` in `{title}`."
+    except Exception as exc:
+        return False, f"Could not type command into `{title}`: {exc}"
+
+
 def execute_close_app(payload: dict) -> str:
     """Send graceful WM_CLOSE to the confirmed target window."""
     hwnd = int(payload.get("hwnd") or 0)
@@ -825,6 +1081,7 @@ def plan_windows_command(
     command: str,
     cwd: str = "",
     open_visible_cmd: bool | None = None,
+    target_hwnd: int | None = None,
 ) -> dict:
     """Validate and stage a Windows CMD command for mandatory user confirmation."""
     cleaned_cmd = " ".join((command or "").strip().splitlines()).strip()
@@ -835,8 +1092,9 @@ def plan_windows_command(
     if danger_err:
         return {"ok": False, "error": danger_err}
 
+    explicit_cwd = bool(cwd and cwd.strip())
     work_dir = Path.cwd()
-    if cwd and cwd.strip():
+    if explicit_cwd:
         resolved = resolve_directory_path(cwd.strip())
         if resolved is None:
             candidate = Path(cwd.strip()).expanduser()
@@ -846,12 +1104,20 @@ def plan_windows_command(
             return {"ok": False, "error": f"Could not resolve working directory `{cwd}`."}
         work_dir = resolved
 
-    visible = _should_open_visible_cmd(cleaned_cmd, open_visible_cmd)
+    term_win = find_open_terminal_window(target_hwnd)
+    if open_visible_cmd is None and term_win is not None:
+        visible = True
+    else:
+        visible = _should_open_visible_cmd(cleaned_cmd, open_visible_cmd)
+
     return {
         "ok": True,
         "command": cleaned_cmd,
         "cwd": str(work_dir),
+        "explicit_cwd": explicit_cwd,
         "open_visible_cmd": visible,
+        "reuse_terminal_hwnd": int(term_win["hwnd"]) if (visible and term_win is not None) else 0,
+        "reuse_terminal_title": str(term_win["title"]) if (visible and term_win is not None) else "",
     }
 
 
@@ -860,7 +1126,7 @@ def execute_windows_command(
     edited_command: str | None = None,
     dry_run: bool = False,
 ) -> str:
-    """Execute a confirmed Windows CMD command in Smart Mode (captured or visible cmd.exe)."""
+    """Execute a confirmed Windows CMD command in Smart Mode (captured, live-typed, or new cmd.exe)."""
     cmd = " ".join(((edited_command if edited_command is not None else payload.get("command")) or "").strip().splitlines()).strip()
     if not cmd:
         return "Cancelled: command was empty."
@@ -872,17 +1138,35 @@ def execute_windows_command(
     cwd = str(payload.get("cwd") or Path.cwd())
     open_visible = bool(payload.get("open_visible_cmd", False))
 
-    if dry_run:
-        mode = "visible CMD window" if open_visible else "captured output"
-        return f"[Dry-run] Would execute `{cmd}` in `{cwd}` ({mode})."
-
     if open_visible:
+        reuse_hwnd = int(payload.get("reuse_terminal_hwnd") or 0)
+        if not reuse_hwnd and payload.get("reuse_terminal", True):
+            dyn_term = find_open_terminal_window()
+            if dyn_term is not None:
+                reuse_hwnd = int(dyn_term.get("hwnd") or 0)
+
+        if reuse_hwnd:
+            live_cmd = cmd
+            if payload.get("explicit_cwd") and cwd and cwd.lower() not in cmd.lower():
+                live_cmd = f'cd /d "{cwd}" && {cmd}'
+            if dry_run:
+                return f"[Dry-run] Would type `{live_cmd}` into open terminal (hwnd={reuse_hwnd})."
+            ok, msg = type_into_terminal_window(reuse_hwnd, live_cmd)
+            if ok:
+                return msg
+
+        if dry_run:
+            return f"[Dry-run] Would execute `{cmd}` in `{cwd}` (visible CMD window)."
+
         subprocess.Popen(
             ["cmd.exe", "/k", cmd],
             cwd=cwd,
             creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0),
         )
         return f"Opened Command Prompt in `{cwd}` and ran: `{cmd}`"
+
+    if dry_run:
+        return f"[Dry-run] Would execute `{cmd}` in `{cwd}` (captured output)."
 
     proc = subprocess.run(
         ["cmd.exe", "/c", cmd],

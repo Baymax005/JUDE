@@ -288,7 +288,7 @@ AGENT_TOOL_SCHEMAS: list[dict] = [
             "name": "run_windows_command",
             "description": (
                 "Stage a Windows CMD command for mandatory user confirmation before execution. "
-                "Supports captured output or opening a visible Command Prompt window."
+                "Supports captured output, opening a visible Command Prompt window, or typing live into an already-open terminal when open_visible_cmd=true or a terminal window is active."
             ),
             "parameters": {
                 "type": "object",
@@ -297,7 +297,7 @@ AGENT_TOOL_SCHEMAS: list[dict] = [
                     "cwd": {"type": "string", "description": "Optional working directory (e.g. 'Desktop' or full path)."},
                     "open_visible_cmd": {
                         "type": "boolean",
-                        "description": "True to open a visible cmd.exe window; omit for Smart mode.",
+                        "description": "True to type into an open terminal or launch visible cmd.exe; omit for Smart mode.",
                     },
                 },
                 "required": ["command"],
@@ -357,8 +357,10 @@ def select_tools_for_turn(user_text: str, live_ctx: str = "") -> list[dict]:
 
 _TOOL_CALL_TAG_RE = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", flags=re.DOTALL)
 _FAKE_TOOL_CLAIM_RE = re.compile(
-    r"\bI\s+(?:called|executed|ran|invoked)\s+(?:window_control|close_app|open_app_or_site|"
-    r"open_terminal|read_active_screen|edit_word_doc|create_word_doc|list_windows|focus_window)\b",
+    r"(?:\bI\s+(?:called|executed|ran|invoked)\s+(?:window_control|close_app|open_app_or_site|"
+    r"open_terminal|run_windows_command|google_search|read_active_screen|edit_word_doc|create_word_doc|"
+    r"list_windows|focus_window)\b"
+    r"|\bStaged\s+opening\b|\bUsed\s+Google\s+Search\s+on\s+Chrome\b)",
     flags=re.IGNORECASE,
 )
 
@@ -601,14 +603,15 @@ def _execute_tool_call(
         cwd = str(args.get("cwd") or "").strip()
         vis_raw = args.get("open_visible_cmd")
         open_vis = bool(vis_raw) if isinstance(vis_raw, bool) else None
-        plan = plan_windows_command(cmd, cwd=cwd, open_visible_cmd=open_vis)
+        plan = plan_windows_command(cmd, cwd=cwd, open_visible_cmd=open_vis, target_hwnd=target_hwnd)
         if not plan.get("ok"):
             return json.dumps(plan, ensure_ascii=False), None, sources
-        mode_desc = (
-            "visible Command Prompt window"
-            if plan["open_visible_cmd"]
-            else "captured CMD output inside J.U.D.E."
-        )
+        if plan.get("reuse_terminal_hwnd"):
+            mode_desc = f"live typing into `{plan.get('reuse_terminal_title') or 'Active Terminal'}`"
+        elif plan["open_visible_cmd"]:
+            mode_desc = "visible Command Prompt window"
+        else:
+            mode_desc = "captured CMD output inside J.U.D.E."
         spec = {
             "kind": "win_cmd",
             "title": "Confirm Windows CMD Command",
