@@ -1,8 +1,9 @@
 # J.U.D.E. — Local-First Two-Tier Desktop AI Assistant
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Baymax005/JUDE/blob/main/colab/train_tier1_router.ipynb)
+[![Tier 1 Colab](https://img.shields.io/badge/Tier%201%20DistilBERT-Open%20in%20Colab-F9AB00?logo=googlecolab&logoColor=white)](https://colab.research.google.com/github/Baymax005/JUDE/blob/main/colab/train_tier1_router.ipynb)
+[![Tier 2 QLoRA Colab](https://img.shields.io/badge/Tier%202%20J.U.D.E.--3B%20QLoRA-Open%20in%20Colab-0EA5E9?logo=googlecolab&logoColor=white)](https://colab.research.google.com/github/Baymax005/JUDE/blob/main/colab/train_tier2_jude_lora.ipynb)
 
-**J.U.D.E.** is a local-first, voice-and-screen-aware Windows desktop assistant built on a **two-tier cognitive cascade**, separating sub-20 ms deterministic intent routing from lazy-loaded local LLM reasoning.
+**J.U.D.E.** is a local-first, voice-and-screen-aware Windows 11 desktop AI agent (with a **VMware Linux guest SSH/OCR bridge**) built on a **two-tier cognitive cascade**, combining a sub-10 ms DistilBERT router with a custom 4-bit **QLoRA fine-tuned `J.U.D.E.-3B` tool-calling agent**.
 
 ---
 
@@ -10,15 +11,14 @@
 
 | Tier | Engine | Role | Latency Target |
 | :--- | :--- | :--- | :--- |
-| **Tier 1 (System 1 — Fast Reflex)** | Fine-tuned `distilbert-base-uncased` (INT8 ONNX via `onnxruntime`) + deterministic Python handlers | Classifies intent locally and executes fast commands directly (`SAVE_MEMORY`, `RECALL_MEMORY`, `OPEN_TARGET`, `COMPRESS_FILES`, `SYSTEM_INFO`) | ~10–15 ms on CPU |
-| **Tier 2 (System 2 — Deliberate Reasoning)** | Local `qwen2.5-coder:1.5b` wrapped as custom Ollama model `jude` (`keep_alive="3m"`) | Lazy-loaded only for generative writing, open Word document edits, screen error explanation, web search summarization, and general Q&A | ~1–3 s local |
+| **Tier 1 (System 1 — Fast Reflex)** | Fine-tuned `distilbert-base-uncased` (INT8 ONNX via `onnxruntime`) + deterministic Python handlers | Classifies intent locally and executes high-confidence (`>= 0.88`) fast commands directly (`SAVE_MEMORY`, `RECALL_MEMORY`, `OPEN_TARGET`, `COMPRESS_FILES`, `SYSTEM_INFO`, instant window/terminal control) | ~6–10 ms on CPU |
+| **Tier 2 (System 2 — Tool-Calling Agent)** | Custom QLoRA fine-tuned **`J.U.D.E.-3B`** (`Qwen2.5-3B-Instruct` base, `r=16`, `Q4_K_M` GGUF, `num_ctx=4096`) in local Ollama (`keep_alive="3m"`) | Handles all 18 Windows 11 + VMware Linux tools (Word COM read/create/edit, Chrome profiles, terminal, Explorer, UI inspection with password masking, VMware WinRT OCR & SSH), habit learning, and honest out-of-scope refusals | ~1–4 s local |
 
-### 3-Way Confidence Gate + Temperature Scaling
-Tier 1 calibrated softmax probabilities drive a 3-way routing gate configured in [`app/config.py`](app/config.py):
+### Confidence Gate & Silent Escalation
+Tier 1 calibrated softmax probabilities drive a non-intrusive routing gate configured in [`app/config.py`](app/config.py):
 
-- **`confidence >= 0.80`** → **Direct Route**: Execute Tier 1 Python handler immediately (or route directly to the Tier 2 handler for generative intents).
-- **`0.55 <= confidence < 0.80`** → **Confirm / Clarify**: Prompt for quick user confirmation before running file or system actions.
-- **`confidence < 0.55`** → **Escalate / Fallback**: Treat as out-of-distribution or ambiguous and hand off safely to Tier 2 (`jude`) or request clarification.
+- **`confidence >= 0.88`** → **Direct Route**: Execute Tier 1 deterministic Python handler immediately (with explicit confirmation modals retained for file compression, deletion/closes, Word writes, and `sudo`/modifying Linux VM commands).
+- **`confidence < 0.88`** → **Silent Tier 2 Escalation**: Hand off smoothly to the **Tier 2 `J.U.D.E.-3B` Tool Agent** with live active-window and learned preference context (eliminating interrupting confirmation popups on conversational queries).
 
 ---
 
@@ -110,15 +110,30 @@ All classification metrics below were measured on the held-out stratified **10% 
 
 *Tier 1 (`6.61 ms` mean) resolves deterministic commands ~147× faster than waking Tier 2 (`970.0 ms` total on GPU).*
 
+### 5. Tier 2 QLoRA Fine-Tuning Benchmark (`n = 90` Held-Out Tool-Calling Eval)
+
+`Qwen2.5-3B-Instruct` was fine-tuned with **4-bit QLoRA** (`r = 16`, `lora_alpha = 32`, `MAX_SEQ_LENGTH = 2048`, `2` epochs, `29.9M` trainable parameters) in [`colab/train_tier2_jude_lora.ipynb`](colab/train_tier2_jude_lora.ipynb) on a blended corpus of ungated [`NousResearch/hermes-function-calling-v1`](https://huggingface.co/datasets/NousResearch/hermes-function-calling-v1) and J.U.D.E.'s synthetic OS/VMware/honest-refusal split ([`colab/build_tier2_dataset.py`](colab/build_tier2_dataset.py)), then exported to **`Q4_K_M` GGUF (`1.93 GB`)** for local Ollama.
+
+| Evaluation Metric (`n = 90`) | Base `Qwen2.5-3B` | QLoRA Fine-Tuned `J.U.D.E.-3B` | Delta |
+| :--- | :---: | :---: | :---: |
+| **JSON / Format Validity** | `95.56%` | **`100.00%`** | `+4.44%` |
+| **Tool Selection Accuracy** | `76.67%` | **`100.00%`** | `+23.33%` |
+| **Argument Match Accuracy** | `55.56%` | **`98.89%`** | `+43.33%` |
+| **Honest Refusal Rate (Out-of-Scope)** | `61.11%` | **`100.00%`** | `+38.89%` |
+
 ### Training & Evaluation Charts
 
-| Training vs. Validation Loss | Test Set Confusion Matrix |
+| Tier 1 Training vs. Validation Loss | Tier 1 Test Set Confusion Matrix |
 | :---: | :---: |
 | ![Training vs Validation Loss](docs/benchmarks/loss_curve.png) | ![Confusion Matrix](docs/benchmarks/confusion_matrix.png) |
 
-| Confidence Calibration & OOD Gate | FP32 PyTorch vs. INT8 ONNX |
+| Tier 1 Confidence Calibration & OOD Gate | Tier 1 FP32 PyTorch vs. INT8 ONNX |
 | :---: | :---: |
 | ![Confidence Histogram OOD](docs/benchmarks/confidence_histogram_ood.png) | ![FP32 vs INT8 Benchmark](docs/benchmarks/fp32_vs_int8_benchmark.png) |
+
+| Tier 2 QLoRA Loss Curve | Tier 2 Base `Qwen2.5-3B` vs. `J.U.D.E.-3B` |
+| :---: | :---: |
+| ![Tier 2 QLoRA Loss Curve](docs/benchmarks/tier2_loss_curve.png) | ![Tier 2 Before vs After Benchmark](docs/benchmarks/tier2_before_vs_after.png) |
 
 ---
 
@@ -148,8 +163,8 @@ All classification metrics below were measured on the held-out stratified **10% 
 ## Floating J.U.D.E. Desktop Widget & Safety Controls
 
 - **Pure PySide6 `QPainter` Avatar (`0 MB` external images):** Renders a HiDPI glossy porcelain-white capsule head (`●—●`) with periodic eye blinking, smooth floating bob, and color-coded status ring (`IDLE` cyan, `Listening` teal, `Tier 1` emerald, `Tier 2` violet rotating arc, `Confirm` amber, `Speaking` sky-blue, `Error` red).
-- **Hands-Free Voice & Expandable HUD:** Local `faster-whisper` (`small.en` INT8) listens on-device with echo suppression while J.U.D.E. speaks via Windows SAPI5. Click J.U.D.E. to expand/collapse the chat HUD, drag to reposition anywhere on screen, or toggle **Mic On / Mic Off** and **Voice On / Muted** from the dock pills, HUD header, or system tray menu.
-- **Safety-by-Design Confirmation Gate:** File compression (`COMPRESS_FILES`), Word document edits (`EDIT_DOCUMENT` with editable before/after diff preview + timestamped snapshots saved to `backups/`), and medium-confidence (`0.55–0.80`) Tier 1 actions always pause for explicit confirmation before modifying anything.
+- **Hands-Free Voice & Offline Neural TTS:** Local `faster-whisper` (`small.en` INT8) listens on-device with echo suppression while J.U.D.E. speaks via **100% offline Piper ONNX neural TTS** (with Win32 SAPI5 fallback). Click J.U.D.E. to expand/collapse the 2-row chat HUD, drag to reposition anywhere on screen, or manage memories & learned habits in the 2-tab **Memory Manager**.
+- **Safety-by-Design Confirmation Gate:** File compression (`COMPRESS_FILES`), Word document creation/edits (with editable preview + `.undo.txt` snapshots saved to `backups/`), closing windows (`CLOSE_APP` allowing File Explorer folder windows only), and `sudo`/modifying VMware Linux SSH commands pause for explicit confirmation before executing.
 
 ---
 
