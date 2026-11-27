@@ -103,7 +103,7 @@ class ConfirmationDialog(QDialog):
             target_lbl.setWordWrap(True)
             layout.addWidget(target_lbl)
 
-        if pending.backup_note and pending.kind != "vmware_cmd":
+        if pending.backup_note and pending.kind not in {"vmware_cmd", "win_cmd"}:
             backup_lbl = QLabel(pending.backup_note)
             backup_lbl.setObjectName("metaLbl")
             backup_lbl.setWordWrap(True)
@@ -142,6 +142,24 @@ class ConfirmationDialog(QDialog):
             cmd_box.setStyleSheet("font-family: 'Consolas', monospace; font-size: 12px;")
             layout.addWidget(cmd_lbl)
             layout.addWidget(cmd_box)
+        elif pending.kind == "win_cmd":
+            mode_name = (
+                "Visible CMD Window (cmd.exe /k)"
+                if pending.payload.get("open_visible_cmd")
+                else "Capture Output inside J.U.D.E."
+            )
+            mode_lbl = QLabel(f"Execution Mode: {mode_name}")
+            mode_lbl.setObjectName("metaLbl")
+            layout.addWidget(mode_lbl)
+
+            cmd_lbl = QLabel("Windows CMD Command to Execute (editable):")
+            cmd_lbl.setObjectName("metaLbl")
+            initial_cmd = pending.after_text or pending.backup_note or str(pending.payload.get("command", ""))
+            self.after_edit = QPlainTextEdit(initial_cmd)
+            self.after_edit.setMaximumHeight(95)
+            self.after_edit.setStyleSheet("font-family: 'Consolas', monospace; font-size: 12px;")
+            layout.addWidget(cmd_lbl)
+            layout.addWidget(self.after_edit)
 
         btn_row = QHBoxLayout()
         btn_row.addStretch(1)
@@ -150,7 +168,7 @@ class ConfirmationDialog(QDialog):
         cancel_btn.clicked.connect(self.reject)
         btn_row.addWidget(cancel_btn)
 
-        confirm_btn = QPushButton("Confirm & Execute" if pending.kind in {"vmware_cmd", "close_app"} else "Confirm & Apply")
+        confirm_btn = QPushButton("Confirm & Execute" if pending.kind in {"vmware_cmd", "close_app", "win_cmd"} else "Confirm & Apply")
         confirm_btn.setObjectName("confirmBtn")
         confirm_btn.setDefault(True)
         confirm_btn.clicked.connect(self.accept)

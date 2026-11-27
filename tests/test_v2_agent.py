@@ -516,8 +516,8 @@ def test_step2_chrome_file_manager_terminal_minimize_and_colab_artifacts() -> No
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
-    # 5. Locked 18 tool schemas + QLoRA JSONL datasets + Colab notebook structure validation
-    assert len(AGENT_TOOL_SCHEMAS) == 18, len(AGENT_TOOL_SCHEMAS)
+    # 5. Locked 19 tool schemas + QLoRA JSONL datasets + Colab notebook structure validation
+    assert len(AGENT_TOOL_SCHEMAS) == 19, len(AGENT_TOOL_SCHEMAS)
     schema_names = {s["function"]["name"] for s in AGENT_TOOL_SCHEMAS}
     colab_dir = ROOT_DIR / "colab"
     schemas_file = colab_dir / "jude_tool_schemas.json"
@@ -599,6 +599,109 @@ def test_screen_grounding_lead_in_and_hallucination_guard() -> None:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_bubble_ui_win_cmd_confirm_and_multilingual_voice() -> None:
+    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtGui import QMouseEvent
+    from PySide6.QtWidgets import QApplication
+
+    from app.engine import EngineResponse, JudeEngine
+    from app.tier1.actions import execute_windows_command, plan_windows_command
+    from app.tier2.ollama_client import JUDE_SYSTEM_PROMPT
+    from app.ui.confirm_dialog import ConfirmationDialog
+    from app.ui.floating_widget import JudeFloatingWindow
+    from app.voice import listener as listener_mod
+
+    # 1. Windows CMD safety + Smart Mode classification
+    bad_plan = plan_windows_command("format C: /q")
+    assert not bad_plan["ok"] and "Refusing" in bad_plan["error"], bad_plan
+    ro_plan = plan_windows_command("ipconfig /all")
+    assert ro_plan["ok"] and ro_plan["open_visible_cmd"] is False, ro_plan
+    vis_plan = plan_windows_command("npm run dev")
+    assert vis_plan["ok"] and vis_plan["open_visible_cmd"] is True, vis_plan
+
+    # 2. Safe captured CMD execution + JudeEngine confirmation gate
+    cap_out = execute_windows_command({"command": "echo JUDE_CMD_OK", "open_visible_cmd": False})
+    assert "JUDE_CMD_OK" in cap_out, cap_out
+
+    tmp = _make_temp_dir("cmd_confirm")
+    try:
+        engine = JudeEngine(
+            memory_db_path=tmp / "memory.db",
+            backups_dir=tmp / "backups",
+            feedback_path=tmp / "feedback.jsonl",
+        )
+        res = engine.process("Type ipconfig in my cmd")
+        assert res.tier_used == "pending" and res.pending is not None, res
+        assert res.pending.kind == "win_cmd" and res.pending.payload["open_visible_cmd"] is True
+
+        app = QApplication.instance() or QApplication([])
+        dlg = ConfirmationDialog(res.pending)
+        assert dlg.after_edit is not None and "ipconfig" in dlg.after_edit.toPlainText()
+        dlg.close()
+
+        res.pending.payload["open_visible_cmd"] = False
+        done = engine.confirm_pending(res.pending.id, edited_after_text="echo EDITED_OK")
+        assert "EDITED_OK" in done.reply, done
+
+        # 3. Floating speech bubble UI + single-click caption toggle + double-click HUD toggle
+        win = JudeFloatingWindow(engine=engine)
+        win.show()
+        app.processEvents()
+        assert win._hud_open is False and not win.speech_bubble.isVisible()
+
+        win.submit_query("Hello Jude", from_voice=True)
+        assert win._hud_open is False, "Voice query must NOT auto-open full chat card"
+        assert win.speech_bubble.isVisible() and win.bubble_label.text() == "Thinking..."
+
+        win._on_engine_response(
+            EngineResponse(
+                reply="All systems are ready.",
+                spoken_summary="All systems are ready.",
+                intent="GENERAL_CHAT",
+                tier_used="tier1",
+                confidence=1.0,
+                gate_action="direct",
+                router_ms=0.2,
+                total_ms=1.0,
+                badge_text="Tier 1 · Fast",
+            )
+        )
+        app.processEvents()
+        assert win._hud_open is False and win.speech_bubble.isVisible()
+        assert "All systems are ready." in win.bubble_label.text()
+
+        # Single click hides/shows caption bubble without opening HUD; double_clicked opens HUD
+        win._on_avatar_single_click()
+        assert not win.speech_bubble.isVisible() and win._hud_open is False
+        win._on_avatar_single_click()
+        assert win.speech_bubble.isVisible() and win._hud_open is False
+
+        dbl = QMouseEvent(
+            QMouseEvent.Type.MouseButtonDblClick,
+            QPoint(20, 20),
+            QPoint(20, 20),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        win.avatar.mouseDoubleClickEvent(dbl)
+        app.processEvents()
+        assert win._hud_open is True and not win.speech_bubble.isVisible()
+
+        win._quit_app()
+        win.close()
+        app.processEvents()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    # 4. Multilingual Whisper small + English/Urdu/Roman Urdu LLM instruction check
+    listener_src = Path(listener_mod.__file__).read_text(encoding="utf-8")
+    assert '"small"' in listener_src and '"small.en"' not in listener_src
+    assert '"language": "en"' not in listener_src and '"task": "transcribe"' in listener_src
+    assert "Urdu" in JUDE_SYSTEM_PROMPT and "Roman Urdu" in JUDE_SYSTEM_PROMPT
+    print("[OK] Bubble caption UI, double-click HUD, CMD confirm gate & multilingual Whisper passed")
+
+
 def main() -> int:
     configure_d_drive_env()
     assert_no_c_drive_leakage()
@@ -611,6 +714,7 @@ def main() -> int:
     test_real_chat_fixes_routing_explorer_and_speech()
     test_step2_chrome_file_manager_terminal_minimize_and_colab_artifacts()
     test_screen_grounding_lead_in_and_hallucination_guard()
+    test_bubble_ui_win_cmd_confirm_and_multilingual_voice()
     print("\nALL J.U.D.E. V2 AGENT TESTS PASSED!")
     return 0
 

@@ -373,5 +373,32 @@
         ]
       }
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "run_windows_command",
+      "description": "Stage a Windows CMD command for mandatory user confirmation before execution. Supports captured output or opening a visible Command Prompt window.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "Windows CMD command line to execute."
+          },
+          "cwd": {
+            "type": "string",
+            "description": "Optional working directory (e.g. 'Desktop' or full path)."
+          },
+          "open_visible_cmd": {
+            "type": "boolean",
+            "description": "True to open a visible cmd.exe window; omit for Smart mode."
+          }
+        },
+        "required": [
+          "command"
+        ]
+      }
+    }
   }
 ]

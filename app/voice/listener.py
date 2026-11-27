@@ -14,10 +14,10 @@ from PySide6.QtCore import QObject, Signal
 from app.config import AUDIO_MODELS_DIR
 
 _INITIAL_PROMPT = (
-    "Jude, Hey Jude, Hello Jude. Commands for Jude: open WhatsApp, open Chrome, "
-    "open Google, open Microsoft Word, open terminal, close app, close File Explorer, "
-    "remember, recall memory, system status, explain screen, read highlighted text, "
-    "edit Word document, VMware Ubuntu Linux."
+    "Jude, Hey Jude, Hello Jude, Assalam o Alaikum. Commands: open Chrome, close File Explorer, "
+    "run ipconfig in cmd, explain screen, read highlighted text, remember, recall memory, "
+    "system status, edit Word document, VMware Ubuntu Linux. "
+    "Chrome khol do, File Explorer band karo, cmd chalao, screen samjhao, yeh kya hai."
 )
 
 _HALLUCINATION_PHRASES = {
@@ -111,7 +111,7 @@ class VoiceListener(QObject):
 
             AUDIO_MODELS_DIR.mkdir(parents=True, exist_ok=True)
             self._model = WhisperModel(
-                "small.en",
+                "small",
                 device="cpu",
                 compute_type="int8",
                 download_root=str(AUDIO_MODELS_DIR),
@@ -200,7 +200,7 @@ class VoiceListener(QObject):
 
     def _transcribe_clip(self, model, clip: np.ndarray, peak_rms: float) -> str:
         kwargs: dict = {
-            "language": "en",
+            "task": "transcribe",
             "beam_size": 3,
             "vad_filter": True,
             "initial_prompt": _INITIAL_PROMPT,

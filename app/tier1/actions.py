@@ -753,3 +753,152 @@ def execute_compression(source_path: Path, archive_path: Path) -> str:
 
     size_mb = dst.stat().st_size / (1024 * 1024)
     return f"Compressed `{src.name}` into `{dst}` ({size_mb:.2f} MB)."
+
+
+_DANGEROUS_WIN_CMD_PATTERNS = (
+    re.compile(r"\bformat\s+[a-z]:", flags=re.I),
+    re.compile(r"\bdiskpart\b", flags=re.I),
+    re.compile(r"\bbcdedit\b", flags=re.I),
+    re.compile(r"\bcipher\s+/w:", flags=re.I),
+    re.compile(r"\b(?:rd|rmdir)\b[^\r\n]*\/s\b[^\r\n]*[a-z]:\\(?:\s|$)", flags=re.I),
+    re.compile(r"\bdel\b[^\r\n]*\/[fs]\b[^\r\n]*[a-z]:\\\*", flags=re.I),
+    re.compile(r"\breg\s+delete\s+(?:hklm|hkey_local_machine)\b", flags=re.I),
+    re.compile(r"\bshutdown\b[^\r\n]*\/(?:s|r)\b", flags=re.I),
+)
+
+_READONLY_WIN_CMD_HEADS = {
+    "ipconfig",
+    "whoami",
+    "hostname",
+    "ver",
+    "systeminfo",
+    "dir",
+    "tree",
+    "echo",
+    "where",
+    "ping",
+    "nslookup",
+    "netstat",
+    "tasklist",
+    "wmic",
+    "getmac",
+    "route",
+    "arp",
+    "sc query",
+    "python --version",
+    "python -v",
+    "node -v",
+    "node --version",
+    "npm -v",
+    "pip list",
+    "pip show",
+    "git status",
+    "git log",
+    "git branch",
+    "git diff",
+}
+
+
+def _is_dangerous_windows_command(cmd: str) -> str | None:
+    for pat in _DANGEROUS_WIN_CMD_PATTERNS:
+        if pat.search(cmd):
+            return f"Refusing destructive system command matching `{pat.pattern}`."
+    return None
+
+
+def _should_open_visible_cmd(cmd: str, explicit: bool | None) -> bool:
+    if explicit is not None:
+        return bool(explicit)
+    # Chained/piped commands or non-readonly heads run in a visible cmd.exe window
+    lowered = " ".join(cmd.strip().lower().split())
+    if any(op in lowered for op in ("&&", "||", "|", ">", ">>", ";", "\n")):
+        return True
+    parts = lowered.split()
+    head1 = parts[0] if parts else ""
+    head2 = " ".join(parts[:2]) if len(parts) >= 2 else head1
+    if head2 in _READONLY_WIN_CMD_HEADS or head1 in _READONLY_WIN_CMD_HEADS:
+        return False
+    return True
+
+
+def plan_windows_command(
+    command: str,
+    cwd: str = "",
+    open_visible_cmd: bool | None = None,
+) -> dict:
+    """Validate and stage a Windows CMD command for mandatory user confirmation."""
+    cleaned_cmd = " ".join((command or "").strip().splitlines()).strip()
+    if not cleaned_cmd:
+        return {"ok": False, "error": "Specify a Windows CMD command to run."}
+
+    danger_err = _is_dangerous_windows_command(cleaned_cmd)
+    if danger_err:
+        return {"ok": False, "error": danger_err}
+
+    work_dir = Path.cwd()
+    if cwd and cwd.strip():
+        resolved = resolve_directory_path(cwd.strip())
+        if resolved is None:
+            candidate = Path(cwd.strip()).expanduser()
+            if candidate.exists() and candidate.is_dir():
+                resolved = candidate.resolve()
+        if resolved is None:
+            return {"ok": False, "error": f"Could not resolve working directory `{cwd}`."}
+        work_dir = resolved
+
+    visible = _should_open_visible_cmd(cleaned_cmd, open_visible_cmd)
+    return {
+        "ok": True,
+        "command": cleaned_cmd,
+        "cwd": str(work_dir),
+        "open_visible_cmd": visible,
+    }
+
+
+def execute_windows_command(
+    payload: dict,
+    edited_command: str | None = None,
+    dry_run: bool = False,
+) -> str:
+    """Execute a confirmed Windows CMD command in Smart Mode (captured or visible cmd.exe)."""
+    cmd = " ".join(((edited_command if edited_command is not None else payload.get("command")) or "").strip().splitlines()).strip()
+    if not cmd:
+        return "Cancelled: command was empty."
+
+    danger_err = _is_dangerous_windows_command(cmd)
+    if danger_err:
+        return danger_err
+
+    cwd = str(payload.get("cwd") or Path.cwd())
+    open_visible = bool(payload.get("open_visible_cmd", False))
+
+    if dry_run:
+        mode = "visible CMD window" if open_visible else "captured output"
+        return f"[Dry-run] Would execute `{cmd}` in `{cwd}` ({mode})."
+
+    if open_visible:
+        subprocess.Popen(
+            ["cmd.exe", "/k", cmd],
+            cwd=cwd,
+            creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0),
+        )
+        return f"Opened Command Prompt in `{cwd}` and ran: `{cmd}`"
+
+    proc = subprocess.run(
+        ["cmd.exe", "/c", cmd],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        encoding="utf-8",
+        errors="replace",
+    )
+    combined = (proc.stdout or "").strip()
+    err_txt = (proc.stderr or "").strip()
+    if err_txt:
+        combined = f"{combined}\n{err_txt}".strip() if combined else err_txt
+    if len(combined) > 900:
+        combined = combined[:897].rstrip() + "..."
+    if proc.returncode != 0:
+        return f"CMD exited with code {proc.returncode}: {combined or '(no output)'}"
+    return f"CMD `{cmd}` finished:\n{combined or '(no output)'}"

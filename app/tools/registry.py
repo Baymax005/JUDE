@@ -17,6 +17,7 @@ from app.tier1.actions import (
     open_target,
     open_terminal,
     plan_close_app,
+    plan_windows_command,
 )
 from app.tier1.memory import (
     delete_memory_by_query,
@@ -281,6 +282,28 @@ AGENT_TOOL_SCHEMAS: list[dict] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_windows_command",
+            "description": (
+                "Stage a Windows CMD command for mandatory user confirmation before execution. "
+                "Supports captured output or opening a visible Command Prompt window."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string", "description": "Windows CMD command line to execute."},
+                    "cwd": {"type": "string", "description": "Optional working directory (e.g. 'Desktop' or full path)."},
+                    "open_visible_cmd": {
+                        "type": "boolean",
+                        "description": "True to open a visible cmd.exe window; omit for Smart mode.",
+                    },
+                },
+                "required": ["command"],
+            },
+        },
+    },
 ]
 
 _TOOL_BY_NAME: dict[str, dict] = {
@@ -294,6 +317,7 @@ _CORE_TOOLS = (
     "focus_window",
     "window_control",
     "open_terminal",
+    "run_windows_command",
     "navigate_files",
     "google_search",
     "read_active_screen",
@@ -571,6 +595,32 @@ def _execute_tool_call(
 
     if name == "system_info":
         return json.dumps({"ok": True, "result": get_system_info("")}, ensure_ascii=False), None, sources
+
+    if name == "run_windows_command":
+        cmd = str(args.get("command") or "").strip()
+        cwd = str(args.get("cwd") or "").strip()
+        vis_raw = args.get("open_visible_cmd")
+        open_vis = bool(vis_raw) if isinstance(vis_raw, bool) else None
+        plan = plan_windows_command(cmd, cwd=cwd, open_visible_cmd=open_vis)
+        if not plan.get("ok"):
+            return json.dumps(plan, ensure_ascii=False), None, sources
+        mode_desc = (
+            "visible Command Prompt window"
+            if plan["open_visible_cmd"]
+            else "captured CMD output inside J.U.D.E."
+        )
+        spec = {
+            "kind": "win_cmd",
+            "title": "Confirm Windows CMD Command",
+            "summary": f"Review and confirm before running this command ({mode_desc}).",
+            "intent": "RUN_WIN_CMD",
+            "confidence": 1.0,
+            "target_path": plan["cwd"],
+            "backup_note": plan["command"],
+            "after_text": plan["command"],
+            "payload": plan,
+        }
+        return json.dumps({"ok": True, "staged": True}, ensure_ascii=False), spec, sources
 
     return json.dumps({"ok": False, "error": f"Unknown tool: {name}"}), None, sources
 

@@ -15,6 +15,7 @@ _CORE_TOOLS = (
     "focus_window",
     "window_control",
     "open_terminal",
+    "run_windows_command",
     "navigate_files",
     "google_search",
     "read_active_screen",

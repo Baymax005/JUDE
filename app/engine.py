@@ -22,11 +22,13 @@ from app.tier1.actions import (
     control_window,
     execute_close_app,
     execute_compression,
+    execute_windows_command,
     get_system_info,
     open_target,
     open_terminal,
     plan_close_app,
     plan_compression,
+    plan_windows_command,
 )
 from app.tier1.memory import (
     delete_memory_by_query,
@@ -47,7 +49,7 @@ class PendingConfirmation:
     """Action awaiting explicit user confirmation before executing."""
 
     id: str
-    kind: str  # "compress", "word_edit", "word_create", "close_app", or "vmware_cmd"
+    kind: str  # "compress", "word_edit", "word_create", "close_app", "vmware_cmd", or "win_cmd"
     title: str
     summary: str
     intent: str
@@ -225,6 +227,12 @@ _CLOSE_APP_RE = re.compile(
     r"^(?:(?:(?:hey|hi|hello)\s+)?jude[\s,:-]+)?(?:please\s+|can\s+you\s+)?close\s+(.+?)[.?!]*$",
     flags=re.IGNORECASE,
 )
+_WIN_CMD_DIRECT_RE = re.compile(
+    r"^(?:(?:(?:hey|hi|hello)\s+)?jude[\s,:-]+)?(?:please\s+|can\s+you\s+)?"
+    r"(?:(?:open\s+(?:my\s+)?(?:cmd|command\s+prompt)\s+and\s+(?:run|type|execute)\s+(.+?))"
+    r"|(?:(?:run|type|execute)\s+(.+?)\s+(?:in|on)\s+(?:my\s+)?(?:cmd|command\s+prompt)))[.?!]*$",
+    flags=re.IGNORECASE,
+)
 _WORD_EDIT_RE = re.compile(
     r"\bword\s+(?:doc(?:ument)?|file)\b.*\b(?:fill|edit|rewrite|polish|update|change|insert|fix|shorten|add|type|put|append|write)\b"
     r"|\b(?:fill|edit|rewrite|polish|update|change|insert|fix|shorten|add|type|put|append|write)\b.*\b(?:word\s+(?:doc(?:ument)?|file)|highlighted\s+(?:area|text|section|part)|on\s+the\s+highlighted)\b",
@@ -272,6 +280,11 @@ def _match_deterministic_guard(cleaned: str) -> tuple[str, str] | None:
         return ("EXPLAIN_SCREEN", "tier2")
     if _DRIVE_OPEN_RE.search(low_stripped) or _DRIVE_OPEN_RE.search(low):
         return ("OPEN_TARGET", "tier1")
+    if (
+        (_WIN_CMD_DIRECT_RE.match(stripped) or _WIN_CMD_DIRECT_RE.match(cleaned))
+        and not any(w in low for w in ("vmware", "ubuntu", "linux"))
+    ):
+        return ("WIN_CMD_DIRECT", "tier2")
     if _BARE_TERMINAL_RE.match(stripped) or _BARE_TERMINAL_RE.match(cleaned):
         return ("OPEN_TERMINAL_DIRECT", "tier1")
     if _WIN_CTRL_RE.match(stripped) or _WIN_CTRL_RE.match(cleaned):
@@ -607,6 +620,52 @@ class JudeEngine:
                     badge_text=f"Agent · Confirm ({total_ms:.0f} ms)",
                     pending=pending,
                 )
+            if guard_intent == "WIN_CMD_DIRECT":
+                stripped_cmd = _strip_lead_ins(cleaned) or cleaned
+                m = _WIN_CMD_DIRECT_RE.match(stripped_cmd) or _WIN_CMD_DIRECT_RE.match(cleaned)
+                raw_cmd = ((m.group(1) or m.group(2)) if m else "").strip()
+                plan = plan_windows_command(raw_cmd, open_visible_cmd=True)
+                total_ms = (time.perf_counter() - t_start) * 1000.0
+                if not plan.get("ok"):
+                    err = plan.get("error", "Could not stage Windows CMD command.")
+                    return EngineResponse(
+                        reply=err,
+                        spoken_summary=_spoken_excerpt(err),
+                        intent="RUN_WIN_CMD",
+                        tier_used="tier2",
+                        confidence=1.0,
+                        gate_action="direct",
+                        router_ms=0.1,
+                        total_ms=total_ms,
+                        badge_text=f"CMD · Blocked · {total_ms:.1f} ms",
+                    )
+                pid = uuid.uuid4().hex[:10]
+                pending = PendingConfirmation(
+                    id=pid,
+                    kind="win_cmd",
+                    title="Confirm Windows CMD Command",
+                    summary="Review and confirm before opening Command Prompt and executing:",
+                    intent="RUN_WIN_CMD",
+                    confidence=1.0,
+                    target_path=plan["cwd"],
+                    backup_note=plan["command"],
+                    after_text=plan["command"],
+                    payload={**plan, "original_text": cleaned, "router_ms": 0.1},
+                )
+                self._pending[pid] = pending
+                msg = f"Ready to run `{plan['command']}` in CMD. Confirm to execute."
+                return EngineResponse(
+                    reply=msg,
+                    spoken_summary="Please confirm before I run that command in Command Prompt.",
+                    intent="RUN_WIN_CMD",
+                    tier_used="pending",
+                    confidence=1.0,
+                    gate_action="confirm",
+                    router_ms=0.1,
+                    total_ms=total_ms,
+                    badge_text=f"CMD · Confirm ({total_ms:.0f} ms)",
+                    pending=pending,
+                )
         else:
             route = self.router.predict(cleaned)
 
@@ -867,6 +926,28 @@ class JudeEngine:
                 router_ms=router_ms,
                 total_ms=total_ms,
                 badge_text=f"Agent · Closed · {total_ms:.0f} ms",
+            )
+
+        if pending.kind == "win_cmd":
+            dry_run = bool(pending.payload.get("dry_run", False))
+            reply = execute_windows_command(
+                pending.payload,
+                edited_command=edited_after_text,
+                dry_run=dry_run,
+            )
+            executed_cmd = (edited_after_text or pending.payload.get("command", "")).strip()
+            log_activity("win_cmd", executed_cmd[:80], pending.target_path, db_path=self.memory_db_path)
+            total_ms = (time.perf_counter() - t_start) * 1000.0
+            return EngineResponse(
+                reply=reply,
+                spoken_summary=_spoken_excerpt(reply),
+                intent=pending.intent,
+                tier_used="tier2",
+                confidence=pending.confidence,
+                gate_action="direct",
+                router_ms=router_ms,
+                total_ms=total_ms,
+                badge_text=f"CMD · {total_ms:.0f} ms",
             )
 
         if pending.kind == "vmware_cmd":

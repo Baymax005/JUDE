@@ -47,6 +47,19 @@ class _TaskWorker(QObject):
             self.failed.emit(str(exc))
 
 
+class _SpeechBubbleFrame(QFrame):
+    """Compact caption bubble above J.U.D.E. that toggles full chat on click."""
+
+    clicked = Signal()
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit()
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+
 class JudeFloatingWindow(QWidget):
     """Frameless always-on-top floating J.U.D.E. widget + expandable HUD."""
 
@@ -67,6 +80,12 @@ class JudeFloatingWindow(QWidget):
         self._active_thread: QThread | None = None
         self._active_worker: _TaskWorker | None = None
         self._history_html: list[str] = []
+        self._last_bubble_text: str = ""
+
+        self._bubble_timer = QTimer(self)
+        self._bubble_timer.setSingleShot(True)
+        self._bubble_timer.setInterval(8500)
+        self._bubble_timer.timeout.connect(self._hide_bubble)
 
         self.setWindowTitle("J.U.D.E.")
         self.setWindowIcon(build_jude_tray_icon())
@@ -92,7 +111,7 @@ class JudeFloatingWindow(QWidget):
         self._fg_timer.start()
 
         self._append_system_message(
-            f"Ready ({self.engine.router_status}). Click J.U.D.E. to collapse or ask anything."
+            f"Ready ({self.engine.router_status}). Double-click J.U.D.E. to open chat or collapse."
         )
 
     def _build_ui(self) -> None:
@@ -293,14 +312,41 @@ class JudeFloatingWindow(QWidget):
 
         # Compact Floating J.U.D.E. Dock (always visible)
         dock_col = QVBoxLayout()
-        dock_col.setSpacing(2)
+        dock_col.setSpacing(4)
         dock_col.setContentsMargins(0, 0, 0, 0)
 
+        self.speech_bubble = _SpeechBubbleFrame(self)
+        self.speech_bubble.setObjectName("speechBubble")
+        self.speech_bubble.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.speech_bubble.setToolTip("Click to open full chat")
+        self.speech_bubble.setMaximumWidth(275)
+        self.speech_bubble.setStyleSheet(
+            """
+            QFrame#speechBubble {
+                background-color: rgba(15, 23, 42, 238);
+                border: 1px solid #38BDF8;
+                border-radius: 12px;
+            }
+            """
+        )
+        bubble_layout = QVBoxLayout(self.speech_bubble)
+        bubble_layout.setContentsMargins(10, 6, 10, 6)
+        self.bubble_label = QLabel("")
+        self.bubble_label.setWordWrap(True)
+        self.bubble_label.setStyleSheet(
+            "color: #F8FAFC; font-size: 12px; font-weight: 500; background: transparent; border: none;"
+        )
+        bubble_layout.addWidget(self.bubble_label)
+        self.speech_bubble.clicked.connect(self.toggle_hud)
+        self.speech_bubble.setVisible(False)
+        dock_col.addWidget(self.speech_bubble, 0, Qt.AlignmentFlag.AlignRight)
+
         self.avatar = JudeAvatarWidget(self, size=108)
-        self.avatar.clicked.connect(self.toggle_hud)
+        self.avatar.clicked.connect(self._on_avatar_single_click)
+        self.avatar.double_clicked.connect(self.toggle_hud)
         self.avatar.drag_moved.connect(self._on_avatar_dragged)
         self.avatar.context_menu_requested.connect(self._show_avatar_menu)
-        dock_col.addWidget(self.avatar, 0, Qt.AlignmentFlag.AlignCenter)
+        dock_col.addWidget(self.avatar, 0, Qt.AlignmentFlag.AlignRight)
 
         dock_pills = QHBoxLayout()
         dock_pills.setSpacing(4)
@@ -437,20 +483,8 @@ class JudeFloatingWindow(QWidget):
         self.speaker.set_muted(not self.speaker.muted)
         self._refresh_mute_labels()
 
-    def _on_speech_started(self) -> None:
-        if self._active_thread is None:
-            self.avatar.set_state(AvatarState.LISTENING)
-            self.tier_badge.setText("Listening...")
-
-    def _on_voice_utterance(self, text: str) -> None:
-        if self._active_thread is not None:
-            return
-        self.submit_query(text, from_voice=True)
-
-    def toggle_hud(self) -> None:
+    def _adjust_size_preserving_bottom_right(self) -> None:
         old_bottom_right = self.geometry().bottomRight()
-        self._hud_open = not self._hud_open
-        self.hud_card.setVisible(self._hud_open)
         self.adjustSize()
         if old_bottom_right.x() > 0 and old_bottom_right.y() > 0:
             new_x = old_bottom_right.x() - self.width() + 1
@@ -461,6 +495,57 @@ class JudeFloatingWindow(QWidget):
                 new_x = max(avail.left(), min(new_x, avail.right() - self.width()))
                 new_y = max(avail.top(), min(new_y, avail.bottom() - self.height()))
             self.move(new_x, new_y)
+
+    def _show_bubble(self, text: str, auto_hide_ms: int = 8500) -> None:
+        clean = " ".join((text or "").split())
+        if not clean:
+            return
+        if len(clean) > 240:
+            clean = clean[:237].rstrip() + "..."
+        self._last_bubble_text = clean
+        if self._hud_open:
+            return
+        self.bubble_label.setText(clean)
+        self.speech_bubble.setVisible(True)
+        self._adjust_size_preserving_bottom_right()
+        if auto_hide_ms > 0:
+            self._bubble_timer.start(auto_hide_ms)
+        else:
+            self._bubble_timer.stop()
+
+    def _hide_bubble(self) -> None:
+        self._bubble_timer.stop()
+        if self.speech_bubble.isVisible():
+            self.speech_bubble.setVisible(False)
+            self._adjust_size_preserving_bottom_right()
+
+    def _on_avatar_single_click(self) -> None:
+        if self._hud_open:
+            return
+        if self.speech_bubble.isVisible():
+            self._hide_bubble()
+        elif self._last_bubble_text:
+            self._show_bubble(self._last_bubble_text, auto_hide_ms=8500)
+
+    def _on_speech_started(self) -> None:
+        if self._active_thread is None:
+            self.avatar.set_state(AvatarState.LISTENING)
+            self.tier_badge.setText("Listening...")
+            if not self._hud_open:
+                self._show_bubble("Listening...", auto_hide_ms=0)
+
+    def _on_voice_utterance(self, text: str) -> None:
+        if self._active_thread is not None:
+            return
+        self.submit_query(text, from_voice=True)
+
+    def toggle_hud(self) -> None:
+        self._hud_open = not self._hud_open
+        if self._hud_open:
+            self._bubble_timer.stop()
+            self.speech_bubble.setVisible(False)
+        self.hud_card.setVisible(self._hud_open)
+        self._adjust_size_preserving_bottom_right()
         if self._hud_open:
             self.activateWindow()
             self.input_box.setFocus()
@@ -493,13 +578,15 @@ class JudeFloatingWindow(QWidget):
     def submit_query(self, text: str, from_voice: bool = False) -> None:
         if self._active_thread is not None:
             return
-        if not self._hud_open:
+        if not from_voice and not self._hud_open:
             self.toggle_hud()
         self.listener.set_paused(True)
         self._append_message("You (Voice)" if from_voice else "You", text, "#38BDF8")
         self.tier_badge.setText("Routing...")
         self.avatar.set_state(AvatarState.THINKING_TIER2)
         self._set_busy(True)
+        if not self._hud_open:
+            self._show_bubble("Thinking...", auto_hide_ms=0)
 
         hwnd = self._last_external_hwnd
         self._run_async(lambda: self.engine.process(text, target_hwnd=hwnd))
@@ -532,6 +619,8 @@ class JudeFloatingWindow(QWidget):
         self.avatar.set_state(AvatarState.ERROR)
         self.tier_badge.setText("Error")
         self._append_message("J.U.D.E.", f"Error: {err}", "#F87171")
+        if not self._hud_open:
+            self._show_bubble(f"Error: {err}", auto_hide_ms=8500)
         QTimer.singleShot(2500, lambda: self.avatar.set_state(AvatarState.IDLE))
 
     def _on_engine_response(self, resp: EngineResponse) -> None:
@@ -562,6 +651,11 @@ class JudeFloatingWindow(QWidget):
 
         if resp.spoken_summary:
             self.speaker.speak(resp.spoken_summary)
+
+        if not self._hud_open:
+            bubble_msg = (resp.spoken_summary or resp.reply).strip()
+            if bubble_msg:
+                self._show_bubble(bubble_msg, auto_hide_ms=8500)
 
         self.listener.set_paused(False)
         QTimer.singleShot(2200, lambda: self.avatar.set_state(AvatarState.IDLE))
