@@ -540,6 +540,65 @@ def test_step2_chrome_file_manager_terminal_minimize_and_colab_artifacts() -> No
     print("[OK] Chrome profiles, File Manager, Terminal fallback, Minimize, and QLoRA dataset/notebook passed")
 
 
+def test_screen_grounding_lead_in_and_hallucination_guard() -> None:
+    from app.engine import JudeEngine
+    from app.tools.registry import run_agent_turn
+
+    tmp = _make_temp_dir("screen_leadin")
+    try:
+        fake_windows = [
+            {"hwnd": 701, "title": "Projects", "process": "explorer.exe", "class_name": "CabinetWClass", "pid": 444}
+        ]
+        engine = JudeEngine(
+            memory_db_path=tmp / "memory.db",
+            backups_dir=tmp / "backups",
+            feedback_path=tmp / "feedback.jsonl",
+        )
+
+        # 1. 'No, close my File Manager.' strips 'No, ' lead-in -> stages real close_app confirmation
+        with patch("app.tier1.actions.list_open_windows", return_value=fake_windows):
+            res_close = engine.process("No, close my File Manager.")
+            assert res_close.tier_used == "pending" and res_close.pending is not None, res_close
+            assert res_close.pending.kind == "close_app" and res_close.pending.payload["hwnd"] == 701, res_close.pending
+
+        # 2. 'What is on my screen?' ALWAYS runs explain_screen(target_hwnd=...) instead of blind agent guessing
+        with patch("app.engine.explain_screen", return_value="Active window is Projects in File Explorer.") as mock_es:
+            res_scr = engine.process("What is on my screen?", target_hwnd=701)
+            assert res_scr.tier_used == "tier2" and mock_es.called, res_scr
+            assert mock_es.call_args.kwargs.get("target_hwnd") == 701
+            assert "Projects" in res_scr.reply
+
+        # 3. Unexecuted internal tool-name claim is caught when tools_used == []
+        class _LyingOllama:
+            def get_history(self) -> list[dict]:
+                return []
+
+            def record_turn(self, u: str, a: str) -> None:
+                pass
+
+            def chat_with_tools(self, messages, tools, temperature=0.2, max_tokens=600):
+                return {
+                    "ok": True,
+                    "message": {
+                        "role": "assistant",
+                        "content": "I called window_control with action='minimize' for the active window.",
+                    },
+                    "error": "",
+                }
+
+        turn = run_agent_turn(
+            user_text="Do something weird",
+            ollama=_LyingOllama(),
+            target_hwnd=701,
+            memory_db_path=tmp / "memory.db",
+            backups_dir=tmp / "backups",
+        )
+        assert "window_control" not in turn["reply"] and "didn't run any action" in turn["reply"], turn
+        print("[OK] Real screen capture, lead-in stripping, and fake-tool hallucination guard passed")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main() -> int:
     configure_d_drive_env()
     assert_no_c_drive_leakage()
@@ -551,6 +610,7 @@ def main() -> int:
     test_hud_two_row_layout_and_tts_markdown_strip()
     test_real_chat_fixes_routing_explorer_and_speech()
     test_step2_chrome_file_manager_terminal_minimize_and_colab_artifacts()
+    test_screen_grounding_lead_in_and_hallucination_guard()
     print("\nALL J.U.D.E. V2 AGENT TESTS PASSED!")
     return 0
 

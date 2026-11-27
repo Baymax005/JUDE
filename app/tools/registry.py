@@ -332,6 +332,11 @@ def select_tools_for_turn(user_text: str, live_ctx: str = "") -> list[dict]:
 
 
 _TOOL_CALL_TAG_RE = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", flags=re.DOTALL)
+_FAKE_TOOL_CLAIM_RE = re.compile(
+    r"\bI\s+(?:called|executed|ran|invoked)\s+(?:window_control|close_app|open_app_or_site|"
+    r"open_terminal|read_active_screen|edit_word_doc|create_word_doc|list_windows|focus_window)\b",
+    flags=re.IGNORECASE,
+)
 
 
 def _extract_tool_calls(msg: dict) -> list[tuple[str, dict]]:
@@ -609,6 +614,8 @@ def run_agent_turn(
         tool_calls = _extract_tool_calls(msg)
         if not tool_calls:
             reply = _TOOL_CALL_TAG_RE.sub("", str(msg.get("content") or "")).strip()
+            if not tools_used and _FAKE_TOOL_CLAIM_RE.search(reply):
+                reply = "I didn't run any action for that yet. Tell me clearly which app or window you want me to act on."
             if not reply:
                 reply = "Done."
             ollama.record_turn(user_text, reply)

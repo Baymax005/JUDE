@@ -636,6 +636,13 @@ def explain_screen(
         f"Capture Source: {ctx.get('source', 'uia')}\n"
         f"Focused Element: {ctx['focused_text'] or 'N/A'}\n"
         f"Captured Screen / Document Content:\n{body}\n\n"
-        "Answer the user's question directly based on this captured content."
+        "Describe ONLY the captured window title, app, and visible text above in 1-3 concise natural sentences. "
+        "NEVER invent or guess text, apps, or commands that are not present in the captured content."
     )
-    return ollama.chat(prompt, temperature=0.2, max_tokens=500, use_history=False)
+    return ollama.chat(
+        prompt,
+        system="You are J.U.D.E., a factual screen reader. Report only the captured window and text provided.",
+        temperature=0.1,
+        max_tokens=400,
+        use_history=False,
+    )

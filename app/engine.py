@@ -36,7 +36,7 @@ from app.tier1.memory import (
     save_memory,
 )
 from app.tier2.ollama_client import OllamaClient
-from app.tier2.screen_reader import read_highlighted_text
+from app.tier2.screen_reader import explain_screen, read_highlighted_text
 from app.tier2.word_editor import apply_word_edit, execute_word_create, prepare_word_edit
 from app.tools.registry import run_agent_turn
 from app.tools.vmware_linux_tool import execute_vmware_ssh_command
@@ -239,9 +239,27 @@ _AGENT_BYPASS_RE = re.compile(
 )
 
 
+_SCREEN_QUERY_RE = re.compile(
+    r"\b(?:what(?:'s|\s+is)\s+(?:currently\s+)?on\s+my\s+screen|"
+    r"(?:read|explain|describe|look\s+at)\s+(?:what(?:'s|\s+is)\s+(?:currently\s+)?on\s+|the\s+text\s+on\s+|my\s+)screen)\b",
+    flags=re.IGNORECASE,
+)
+_LEAD_IN_RE = re.compile(
+    r"^(?:(?:no|nope|yes|yeah|ok|okay|well|actually|wait|now|then|just|so|uh|um|hey|hi|hello|jude)[\s,:-]+)+",
+    flags=re.IGNORECASE,
+)
+
+
+def _strip_lead_ins(text: str) -> str:
+    """Strip conversational lead-ins/fillers (e.g. 'No, ', 'Okay, ', 'Jude, ') cleanly."""
+    return _LEAD_IN_RE.sub("", " ".join((text or "").strip().split())).strip()
+
+
 def _match_deterministic_guard(cleaned: str) -> tuple[str, str] | None:
     """Catch deterministic Tier 1 / Word / Agent commands before the 9-class ONNX classifier."""
     low = cleaned.lower()
+    stripped = _strip_lead_ins(cleaned)
+    low_stripped = stripped.lower()
     if _MEMORY_LIST_RE.search(low):
         return ("RECALL_MEMORY", "tier1")
     if _MEMORY_DELETE_RE.search(low):
@@ -250,18 +268,20 @@ def _match_deterministic_guard(cleaned: str) -> tuple[str, str] | None:
         w in low for w in ("edit", "rewrite", "polish", "shorten", "fix", "add", "type", "insert", "put")
     ):
         return ("READ_SELECTION", "tier1")
-    if _DRIVE_OPEN_RE.search(low):
+    if _SCREEN_QUERY_RE.search(low):
+        return ("EXPLAIN_SCREEN", "tier2")
+    if _DRIVE_OPEN_RE.search(low_stripped) or _DRIVE_OPEN_RE.search(low):
         return ("OPEN_TARGET", "tier1")
-    if _BARE_TERMINAL_RE.match(cleaned):
+    if _BARE_TERMINAL_RE.match(stripped) or _BARE_TERMINAL_RE.match(cleaned):
         return ("OPEN_TERMINAL_DIRECT", "tier1")
-    if _WIN_CTRL_RE.match(cleaned):
+    if _WIN_CTRL_RE.match(stripped) or _WIN_CTRL_RE.match(cleaned):
         return ("WINDOW_CONTROL_DIRECT", "tier1")
-    if _CLOSE_APP_RE.match(cleaned):
+    if _CLOSE_APP_RE.match(stripped) or _CLOSE_APP_RE.match(cleaned):
         return ("CLOSE_APP_DIRECT", "tier2")
     if (
-        _OPEN_APP_RE.match(cleaned)
-        and not re.search(r"\b(?:terminal|powershell|cmd|create|new\s+word|search|vmware|linux|ubuntu|compress|zip|archive)\b", low)
-        and open_target(cleaned, dry_run=True)[0]
+        (_OPEN_APP_RE.match(stripped) or _OPEN_APP_RE.match(cleaned))
+        and not re.search(r"\b(?:terminal|powershell|cmd|create|new\s+word|search|vmware|linux|ubuntu|compress|zip|archive)\b", low_stripped)
+        and open_target(stripped or cleaned, dry_run=True)[0]
     ):
         return ("OPEN_TARGET", "tier1")
     if _WORD_EDIT_RE.search(low) and not re.search(r"\b(?:create|new|make)\b", low):
@@ -329,7 +349,7 @@ class JudeEngine:
             _, msg = read_highlighted_text(target_hwnd=target_hwnd)
             return msg
         if intent == "OPEN_TARGET":
-            ok, msg = open_target(text)
+            ok, msg = open_target(_strip_lead_ins(text) or text)
             if ok:
                 self._remember_opened_target(msg)
                 log_activity("open_target", text[:120], msg, db_path=self.memory_db_path)
@@ -341,7 +361,8 @@ class JudeEngine:
                 log_activity("open_terminal", "default", msg, db_path=self.memory_db_path)
             return msg
         if intent == "WINDOW_CONTROL_DIRECT":
-            m = _WIN_CTRL_RE.match(text)
+            stripped = _strip_lead_ins(text) or text
+            m = _WIN_CTRL_RE.match(stripped) or _WIN_CTRL_RE.match(text)
             act = (m.group(1) if m else "minimize").lower()
             query = (m.group(2) if m and m.group(2) else "").strip()
             if query.lower() in {"it", "that", "this", "this app", "that app", "this window"}:
@@ -526,7 +547,8 @@ class JudeEngine:
                     badge_text=f"Tier 1 · Fast · {total_ms:.1f} ms",
                 )
             if guard_intent == "CLOSE_APP_DIRECT":
-                m = _CLOSE_APP_RE.match(cleaned)
+                stripped_close = _strip_lead_ins(cleaned) or cleaned
+                m = _CLOSE_APP_RE.match(stripped_close) or _CLOSE_APP_RE.match(cleaned)
                 raw_target = (m.group(1) if m else "").strip()
                 raw_target = re.sub(r"[\s,]+jude$", "", raw_target, flags=re.I).strip()
                 if raw_target.lower() in {"it", "that", "this", "this app", "that app", "the app", "that window", "this window"}:
@@ -668,6 +690,22 @@ class JudeEngine:
                     total_ms=total_ms,
                     badge_text=f"Tier 1 · Fast · {total_ms:.1f} ms",
                 )
+
+        # Tier 2: EXPLAIN_SCREEN always captures real window/OCR/Word content before answering
+        if route.intent == "EXPLAIN_SCREEN":
+            reply = explain_screen(cleaned, self.ollama, target_hwnd=target_hwnd)
+            total_ms = (time.perf_counter() - t_start) * 1000.0
+            return EngineResponse(
+                reply=reply,
+                spoken_summary=_spoken_excerpt(reply),
+                intent=route.intent,
+                tier_used="tier2",
+                confidence=route.confidence,
+                gate_action="direct",
+                router_ms=route.latency_ms,
+                total_ms=total_ms,
+                badge_text=f"Screen · {total_ms / 1000:.2f} s",
+            )
 
         # Tier 2: EDIT_DOCUMENT always stages an editable diff preview + confirmation first
         if route.intent == "EDIT_DOCUMENT":
